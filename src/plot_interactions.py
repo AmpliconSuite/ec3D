@@ -20,10 +20,8 @@ rcParams['pdf.fonttype'] = 42
 
 """
 Todo:
-(1) add --rotate-to-min
-(2) complete sv and interaction visualization on collapsed matrix
-(3) complete the output to logging
-(4) remove diagonal SVs
+(1) add --rotate-to-min - update coral
+(4) remove diagonal SVs - use additional script
 """
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = "Visualize significant interactions identified in ecDNA.")
@@ -73,6 +71,7 @@ if __name__ == '__main__':
 	bins = []
 	row_labels = dict() # Map an interval of size RES to the index of all its copies
 	N = 0
+	idx_dedup = []
 	if args.plot_collapsed_matrix or args.sv_list:
 		if args.annotation == 'None':
 			print("Annotation file is required.")
@@ -143,7 +142,6 @@ if __name__ == '__main__':
 	else:
 		raise OSError("Input matrix must be in *.txt or *.npy format.")
 	if args.plot_collapsed_matrix:
-		print (data.shape)
 		if data.shape[0] != len(row_labels) or data.shape[1] != len(row_labels):
 			raise OSError("Input matrix must be in size %d * %d." %(len(row_labels), len(row_labels)))
 
@@ -156,6 +154,10 @@ if __name__ == '__main__':
 
 	# Display heatmap with bin numbers
 	im = ax.matshow(log_data, cmap = 'YlOrRd')
+	if args.plot_collapsed_matrix:
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted collapsed matrix.")
+	else:
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted expanded matrix.")
 
 	# Create a color bar with consistent font size
 	cbar = fig.colorbar(im, ax = ax, fraction = 0.046, pad = 0.04)
@@ -170,19 +172,37 @@ if __name__ == '__main__':
 	if args.interactions:
 		si_x, si_y = [], []
 		fp = open(args.interactions, 'r')
-		for line in fp:
-			s = line.strip().split(',')
-			try:
-				si_x.append(int(s[1]))
-				si_y.append(int(s[0]))
-			except:
-				pass
+		if args.plot_collapsed_matrix:
+			idx_map = dict()
+			for bin in bins:
+				for idx in row_labels[bin]:
+					idx_map[idx] = idx_dedup.index(row_labels[bin][0])
+			for line in fp:
+				s = line.strip().split(',')
+				try:
+					bin1 = idx_map[int(s[0])]
+					bin2 = idx_map[int(s[1])]
+					if bin1 > bin2:
+						bin1, bin2 = bin2, bin1
+					si_x.append(bin2)
+					si_y.append(bin1)
+				except:
+					pass
+			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped significant interactions to collapsed matrix.")
+		else:
+			for line in fp:
+				s = line.strip().split(',')
+				try:
+					si_x.append(int(s[1]))
+					si_y.append(int(s[0]))
+				except:
+					pass
 		fp.close()
 		ax.plot(si_x, si_y, 'o', markeredgewidth = 1, ms = 5, markerfacecolor = "None", markeredgecolor = 'b')
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted significant interactions.")
 
 	# Optional: plot additional SVs
-	if args.sv_list:
-				
+	if args.sv_list:	
 		sv_x, sv_y = [], []
 		fp = open(args.sv_list, 'r')
 		for line in fp:
@@ -191,18 +211,25 @@ if __name__ == '__main__':
 				sv_1 = (s[0], int(round(int(s[1]) / res)) * res)
 				sv_2 = (s[2], int(round(int(s[3]) / res)) * res)
 				if sv_1 in row_labels and sv_2 in row_labels:
-					for n1 in row_labels[sv_1]:
-						for n2 in row_labels[sv_2]:
-							if n1 <= n2:
+					if args.plot_collapsed_matrix:
+						n1 = idx_dedup.index(row_labels[sv_1][0])
+						n2 = idx_dedup.index(row_labels[sv_2][0])
+						if n1 > n2:
+							n1, n2 = n2, n1
+						sv_x.append(n1)
+						sv_y.append(n2)
+					else:
+						for n1 in row_labels[sv_1]:
+							for n2 in row_labels[sv_2]:
+								if n1 > n2:
+									n1, n2 = n2, n1
 								sv_x.append(n1)
 								sv_y.append(n2)
-							else:
-								sv_x.append(n2)
-								sv_y.append(n1)
 			except:
 				pass
 		fp.close()
 		ax.plot(sv_x, sv_y, 's', markeredgewidth = 1, ms = 6, markerfacecolor = "None", markeredgecolor = 'k')
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted additional structural variations.")
 
 	# Adjust ticks on the axis
 	ax.set_xticks(mid_pos, minor = False)
@@ -210,13 +237,18 @@ if __name__ == '__main__':
 	ax.set_yticks(yticklbl[1:], minor = False)
 	ax.set_yticklabels(yticklbl[1:], fontsize = fontsize, minor = False)
 	ax.set_ylabel("Bins (%dKb resolution)" %(res // 1000), fontsize = fontsize)
-	ax.set_xlabel("")
+	if args.plot_collapsed_matrix:
+		ax.set_xlabel(args.output_prefix + "_collapsed_matrix", fontsize = fontsize)
+	else:
+		ax.set_xlabel(args.output_prefix + "_expanded_matrix", fontsize = fontsize)
 
 	plt.tight_layout()
 	if args.plot_collapsed_matrix:
 		plt.savefig(args.output_prefix + "_collapsed_matrix.pdf")
-		plt.savefig(args.output_prefix + "_collapsed_matrix.png", dpi = 150)
+		plt.savefig(args.output_prefix + "_collapsed_matrix.png", dpi = 150)	
 	else:
 		plt.savefig(args.output_prefix + "_expanded_matrix.pdf")
 		plt.savefig(args.output_prefix + "_expanded_matrix.png", dpi = 150)
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the plot to pdf and png.")
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 
