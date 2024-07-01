@@ -97,6 +97,8 @@ if __name__ == "__main__":
 				n = (mu ** 2) / (sigma2 - mu)
 				p = mu / sigma2
 				pval = 1 - nbinom.cdf(data[i][j], n, p)
+				if np.isnan(pval):
+					pval = 1.0
 				pvals.append(pval)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
 	
