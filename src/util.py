@@ -28,7 +28,7 @@ def read_ecDNA_cycle(fn, res):
 	return intrvls
 
 
-def reorder_bins(matrix, intrvls):
+def reorder_bins(matrix, intrvls, res):
 	"""
 	Correct the order of bins for segment with orientation '-'
 	"""
@@ -40,6 +40,7 @@ def reorder_bins(matrix, intrvls):
 			matrix[start: start + intrvl_size, :] = matrix[start: start + intrvl_size, :][::-1, :]
 		start += intrvl_size
 	return matrix
+
 
 def calculate_average_distance(array):
 	diff_array = array[:, None, :] - array[None, :, :]
@@ -123,6 +124,7 @@ def getTransformation(X, Y, centering = False, scaling = True, reflection = Fals
 	pr = pearson(dx, dy)
 	# print(rmsd(X.T, Y.T))
 	return rmsd(X.T, Y.T), X.T, Y.T, pr
+
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description = "Compute RMSD and PCC.")

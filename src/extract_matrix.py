@@ -101,7 +101,7 @@ if __name__ == '__main__':
         			D[s1 + i][s2 + j] = v
 			s2 += (int2[2] - int2[1]) // res
 		s1 += (int1[2] - int1[1]) // res
-	D = reorder_bins(D, intrvls) # D: N * N
+	D = reorder_bins(D, intrvls, res) # D: N * N
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Extracted the expanded matrix from the input cool file.")
 
 	"""
