@@ -170,7 +170,7 @@ def mds(C, N, idx_nodup, idx_dup, dup_times, ini_c = None, alpha = -3.0, beta = 
 	C_nodup = C[np.ix_(idx_nodup, idx_nodup)]
 	random_state = check_random_state(None)
 	ini_x = 1 - 2 * random_state.rand(N * 3)
-	bounds_x = [(-100.0, 100.0) for i in range(N * 3)]
+	bounds_x = [(-1.0, 1.0) for i in range(N * 3)]
 	wish_distances_nodup = compute_wish_distances(C_nodup, alpha = alpha, beta = beta)
 	results = []
 	if N_nodup < N:
@@ -244,6 +244,153 @@ def exponent_obj(x, X, C_nodup, S = None, C_dup = None, beta = 1.0):
 			raise ValueError("Function evaluation returns nan.")
 		return ll_alpha
 
+def exponent_obj_alpha_auto(x, X, C_nodup, S = None, C_dup = None, beta = 1.0, reg = True, gamma = 0.01):
+	"""
+	Objective function for optimizing alpha
+	
+	x: 1d variable array of length 1
+
+	X: numpy array of size N * 3
+
+	Todo: other parameters
+
+	beta: float, Estimated scaling factor of the structures
+
+	Returns: float, value of log likelihood (involving alpha) evaludated with given alpha
+	"""
+	alpha = x[0]
+	N = X.shape[0]
+	N_nodup = C_nodup.shape[0]
+	dis = euclidean_distances(X)
+	mask = (dis == 0.0)
+	dis = auto_np.where(mask, 0.01, dis)
+
+	if N_nodup < N:
+		with warnings.catch_warnings():
+			warnings.simplefilter("ignore")
+			fdis = beta * (dis ** alpha)
+		mask1 = (dis == 0.0)
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		mask1 = (auto_np.isnan(fdis))
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		ll_alpha = 0.0
+		if reg and idx_map is not None:
+			diagonal_off_1 = [fdis[idx_map[i]][idx_map[i + 1]] for i in range(N - 1)]
+			ll_alpha += auto_np.var(auto_np.array(diagonal_off_1))
+		ll_alpha *= (gamma * N)
+		fdis_dup = fdis[:, N_nodup:]
+		fdis_dup = auto_np.concatenate((fdis_dup[: N_nodup, :], auto_np.dot(S, fdis_dup[N_nodup:, :])))
+		fdis_dup = auto_np.dot(fdis_dup, S.T)
+		fdis = auto_np.hstack([fdis[: N_nodup, : N_nodup], fdis_dup[:N_nodup, :]])
+		fdis = auto_np.vstack([fdis, fdis_dup.T])
+		D = auto_np.block([[C_nodup, C_dup[: N_nodup, :]], [C_dup.T]])
+		N_dedup = C_dup.shape[0]
+		mask = auto_np.invert(auto_np.tri(N_dedup, dtype = bool)) & (D != 0)
+		fdis = fdis[mask]
+		ll_alpha += fdis.sum()
+		mask1 = (fdis == 0.0)
+		fdis = auto_np.where(mask1, 1.0, fdis)
+		ll_alpha -= (D[mask] * auto_np.log(fdis)).sum()
+		if auto_np.isnan(ll_alpha):
+			raise ValueError("Function evaluation returns nan.")
+		return ll_alpha
+	else:
+		with warnings.catch_warnings():
+			warnings.simplefilter("ignore")
+			fdis = beta * (dis ** alpha)
+		mask1 = (dis == 0.0)
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		mask1 = (auto_np.isnan(fdis))
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		ll_alpha = 0.0
+		if reg and idx_map is not None:
+			diagonal_off_1 = [fdis[idx_map[i]][idx_map[i + 1]] for i in range(N - 1)]
+			ll_alpha += auto_np.var(auto_np.array(diagonal_off_1))
+		ll_alpha *= (gamma * N)
+
+		mask = auto_np.invert(auto_np.tri(N, dtype = bool)) & (C_nodup != 0)
+		fdis = fdis[mask]
+		ll_alpha += fdis.sum()
+		mask1 = (fdis == 0.0)
+		fdis = auto_np.where(mask1, 1.0, fdis)
+		ll_alpha -= (C_nodup[mask] * auto_np.log(fdis)).sum()
+		if auto_np.isnan(ll_alpha):
+			raise ValueError("Function evaluation returns nan.")
+		return ll_alpha
+	
+def exponent_obj_beta_auto(x, X, C_nodup, S = None, C_dup = None, alpha = -3, reg = True, gamma = 0.01):
+	"""
+	Objective function for optimizing alpha
+	
+	x: 1d variable array of length 1
+
+	X: numpy array of size N * 3
+
+	Todo: other parameters
+
+	beta: float, Estimated scaling factor of the structures
+
+	Returns: float, value of log likelihood (involving alpha) evaludated with given alpha
+	"""
+	beta = x[0]
+	N = X.shape[0]
+	N_nodup = C_nodup.shape[0]
+	dis = euclidean_distances(X)
+	mask = (dis == 0.0)
+	dis = auto_np.where(mask, 0.01, dis)
+
+	if N_nodup < N:
+		with warnings.catch_warnings():
+			warnings.simplefilter("ignore")
+			fdis = beta * (dis ** alpha)
+		mask1 = (dis == 0.0)
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		mask1 = (auto_np.isnan(fdis))
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		ll_beta = 0.0
+		if reg and idx_map is not None:
+			diagonal_off_1 = [fdis[idx_map[i]][idx_map[i + 1]] for i in range(N - 1)]
+			ll_beta += auto_np.var(auto_np.array(diagonal_off_1))
+		ll_beta *= (gamma * N)
+		fdis_dup = fdis[:, N_nodup:]
+		fdis_dup = auto_np.concatenate((fdis_dup[: N_nodup, :], auto_np.dot(S, fdis_dup[N_nodup:, :])))
+		fdis_dup = auto_np.dot(fdis_dup, S.T)
+		fdis = auto_np.hstack([fdis[: N_nodup, : N_nodup], fdis_dup[:N_nodup, :]])
+		fdis = auto_np.vstack([fdis, fdis_dup.T])
+		D = auto_np.block([[C_nodup, C_dup[: N_nodup, :]], [C_dup.T]])
+		N_dedup = C_dup.shape[0]
+		mask = auto_np.invert(auto_np.tri(N_dedup, dtype = bool)) & (D != 0)
+		fdis = fdis[mask]
+		ll_beta += fdis.sum()
+		mask1 = (fdis == 0.0)
+		fdis = auto_np.where(mask1, 1.0, fdis)
+		ll_beta -= (D[mask] * auto_np.log(fdis)).sum()
+		if auto_np.isnan(ll_beta):
+			raise ValueError("Function evaluation returns nan.")
+		return ll_beta
+	else:
+		with warnings.catch_warnings():
+			warnings.simplefilter("ignore")
+			fdis = beta * (dis ** alpha)
+		mask1 = (dis == 0.0)
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		mask1 = (auto_np.isnan(fdis))
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		ll_beta = 0.0
+		if reg and idx_map is not None:
+			diagonal_off_1 = [fdis[idx_map[i]][idx_map[i + 1]] for i in range(N - 1)]
+			ll_beta += auto_np.var(auto_np.array(diagonal_off_1))
+		ll_beta *= (gamma * N)
+
+		mask = auto_np.invert(auto_np.tri(N, dtype = bool)) & (C_nodup != 0)
+		fdis = fdis[mask]
+		ll_beta += fdis.sum()
+		mask1 = (fdis == 0.0)
+		fdis = auto_np.where(mask1, 1.0, fdis)
+		ll_beta -= (C_nodup[mask] * auto_np.log(fdis)).sum()
+		if auto_np.isnan(ll_beta):
+			raise ValueError("Function evaluation returns nan.")
+		return ll_beta
 
 def exponent_gradient(x, X, C_nodup, S = None, C_dup = None, beta = 1.0):
 	"""
@@ -476,13 +623,28 @@ def poisson_obj_reg_auto(x, N, C_nodup, S = None, C_dup = None, idx_map = None, 
 		 	raise ValueError("Function evaluation returns nan.")
 		return obj
 	else:
-		mask = auto_np.invert(auto_np.tri(N, dtype = bool)) & (C_nodup != 0) & (dis != 0)
-		fdis = beta * (dis[mask] ** alpha)
-		obj = fdis.sum() - (C_nodup[mask] * auto_np.log(fdis)).sum()    
+		with warnings.catch_warnings():
+			warnings.simplefilter("ignore")
+			fdis = beta * (dis ** alpha)
+		mask1 = (dis == 0.0)
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		mask1 = (auto_np.isnan(fdis))
+		fdis = auto_np.where(mask1, 0.0, fdis)
+		obj = 0.0
+		if reg and idx_map is not None:
+			diagonal_off_1 = [fdis[idx_map[i]][idx_map[i + 1]] for i in range(N - 1)]
+			obj += auto_np.var(auto_np.array(diagonal_off_1))
+		obj *= (gamma * N)
+
+		mask = auto_np.invert(auto_np.tri(N, dtype = bool)) & (C_nodup != 0)
+		fdis = fdis[mask]
+		obj += fdis.sum()
+		mask1 = (fdis == 0.0)
+		fdis = auto_np.where(mask1, 1.0, fdis)
+		obj -= (C_nodup[mask] * auto_np.log(fdis)).sum()
 		if auto_np.isnan(obj):
 			raise ValueError("Function evaluation returns nan.")
 		return obj
-
 
 def convergence_criteria(f_k_list, f_k_len = 10, factr = 1e9):
 	"""
@@ -514,8 +676,9 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 			raise OSError("Input structure must be in *.txt or *.npy format.")
 	N_nodup = len(idx_nodup)
 	C_nodup = C[np.ix_(idx_nodup, idx_nodup)]
-	bounds_x = [(-100.0, 100.0) for i in range(N * 3)]
-	bounds_c = []
+	bounds_x = [(-1.0, 1.0) for i in range(N * 3)]
+	alpha_bounds_ = np.array([[-100, 1e-2]])
+	beta_bounds_ = np.array([[1e-2, 100]])
 	X_ = ini_x
 	C1_ = ini_C1
 	obj_list = []
@@ -531,49 +694,42 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 			s += dup_times[i]
 		C_dup = np.concatenate((C[np.ix_(idx_nodup, idx_dup)], C[np.ix_(idx_dup, idx_dup)]))
 
+	alpha_gradient = grad(exponent_obj_alpha_auto)
+	beta_gradient = grad(exponent_obj_beta_auto)
 	poisson_gradient = grad(poisson_obj_reg_auto)
+	gamma = 0.0
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Regularizer weight %f * N_e." %(gamma))
 	for it in range(round):
 		print(f'Poisson iteration {it+1}')
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Begin iteration %d." %(it + 1))
-		alpha, beta, f_alpha = estimate_alpha_beta(X_, C_nodup, S, C_dup, alpha, beta)
+		
+		# estimate alpha and beta by autograd
+		results1 = optimize.fmin_l_bfgs_b(exponent_obj_alpha_auto, np.array([alpha]), fprime = alpha_gradient,
+						args = (X_, C_nodup, S, C_dup, beta, True, gamma), bounds = alpha_bounds_, maxiter = 1000)
+		alpha = results1[0][0]
+		results2 = optimize.fmin_l_bfgs_b(exponent_obj_beta_auto, np.array([beta]), fprime = beta_gradient,
+						args = (X_, C_nodup, S, C_dup, alpha, True, gamma), bounds = beta_bounds_, maxiter = 1000)
+		beta = results2[0][0]
+		f_alpha = results2[1]
+		# alpha, beta, f_alpha = estimate_alpha_beta(X_, C_nodup, S, C_dup, alpha, beta)
+
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tEstimated alpha = %f; beta = %f." %(alpha, beta))
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + 
 				"\tLog likelihood evaluated with alpha and beta at iteration %d = %f." %(it + 1, f_alpha))
-		results = []
-		if N_nodup < N:
-			C1 = C[np.ix_(idx_nodup, idx_dup)].repeat(dup_times, axis = 1)
-			C2 = C[np.ix_(idx_dup, idx_dup)].repeat(dup_times, axis = 1).repeat(dup_times, axis = 0)
-			bounds_c = np.concatenate((C1, C2)).flatten()
-			bounds_c = [(0.0, bounds_c[i]) for i in range(len(bounds_c))]
-			results = optimize.fmin_l_bfgs_b(poisson_obj, X_.flatten(), fprime = poisson_gradient, 
-							args = (N, C_nodup, S, C_dup, idx_map, alpha, beta, True, 0.005, ), 
-							bounds = bounds_x, maxiter = maxiter)
-			X_ = results[0].reshape(-1, 3)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tLog likelihood at iteration %d = %f." %(it + 1, results[1]))
-			if gt_structure != None:
-				scale_factor = calculate_average_distance(X_original)
-				fr_pos_array = X_original / scale_factor
-				mds_pos_array = X_[idx_map] / scale_factor
-				fr_pos_array = remove_nan_col(fr_pos_array)
-				mds_pos_array = remove_nan_col(mds_pos_array)
-				rmsd, X1, _, pcc = getTransformation(mds_pos_array,fr_pos_array)
-				# np.savetxt(f'simple_structure_{it}.txt', X1)
-				logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tRMSD = %f\tPCC = %f" %(rmsd, pcc))
-		else:
-			# logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tLog likelihood at iteration %d = %f." %(0, poisson_obj(X_.flatten(), N, C_nodup, None, None, -1.08,7 )))
-			results = optimize.fmin_l_bfgs_b(poisson_obj, X_.flatten(), fprime = poisson_gradient, args = 
-											(N, C_nodup, None, None, alpha, beta, ), bounds = bounds_x, 
-											maxiter = maxiter)
-			X_ = results[0].reshape(-1, 3)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tLog likelihood at iteration %d = %f." %(it + 1, results[1]))
-			if gt_structure != None:
-				scale_factor = calculate_average_distance(X_original)
-				fr_pos_array = X_original / scale_factor
-				mds_pos_array = X_ / scale_factor
-				fr_pos_array = remove_nan_col(fr_pos_array)
-				mds_pos_array = remove_nan_col(mds_pos_array)
-				rmsd, _, _, pcc = getTransformation(mds_pos_array,fr_pos_array)
-				logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tRMSD = %f\tPCC = %f" %(rmsd, pcc))
+		results = optimize.fmin_l_bfgs_b(poisson_obj_reg_auto, X_.flatten(), fprime = poisson_gradient, 
+						args = (N, C_nodup, S, C_dup, idx_map, alpha, beta, True, gamma, ), 
+						bounds = bounds_x, maxiter = maxiter)
+		X_ = results[0].reshape(-1, 3)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tLog likelihood at iteration %d = %f." %(it + 1, results[1]))
+		if gt_structure != None:
+			scale_factor = calculate_average_distance(X_original)
+			fr_pos_array = X_original / scale_factor
+			mds_pos_array = X_[idx_map] / scale_factor
+			fr_pos_array = remove_nan_col(fr_pos_array)
+			mds_pos_array = remove_nan_col(mds_pos_array)
+			rmsd, X1, _, pcc = getTransformation(mds_pos_array,fr_pos_array)
+			# np.savetxt(f'simple_structure_{it}.txt', X1)
+			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tRMSD = %f\tPCC = %f" %(rmsd, pcc))
 		if convergence_criteria(obj_list):
 			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tPoisson model optimization converges at iteration %d." %(it + 1))
 			break
@@ -582,37 +738,6 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 		else:
 			obj_list.pop(0)
 			obj_list.append(results[1])
-	if N_nodup < N:
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tReassigning interaction counts.")
-		dis = euclidean_distances(X_)
-		for ci in range(N_nodup):
-			cj = 0
-			for dupi in range(len(dup_times)):
-				ddi = np.array([dis[ci][N_nodup + cj + di] for di in range(dup_times[dupi])])
-				sum_d = sum(ddi ** alpha)
-				for j_ in range(len(ddi)):
-					C1_[ci][cj] = C_dup[ci][dupi] / sum_d * (ddi[j_] ** alpha)
-					cj += 1
-		avg_dis_adj = np.average([dis[idx_map[i]][idx_map[i + 1]] for i in range(N - 1)])
-		for bi1 in range(len(dup_times)):
-			ni1 = dup_times[bi1]
-			cj = 0
-			for bi2 in range(len(dup_times)):
-				ni2 = dup_times[bi2]
-				ddij = np.ones([ni1, ni2])
-				for i_ in range(ni1):
-					for j_ in range(ni2):
-						if i_ == j_:
-							ddij[i_][j_] = avg_dis_adj
-						else:
-							ddij[i_][j_] = dis[ci + i_][N_nodup + cj + j_]
-				sum_d = (ddij ** alpha).sum()
-				for i_ in range(ni1):
-					for j_ in range(ni2):
-						C1_[ci + i_][cj + j_] = C_dup[N_nodup + bi1][bi2] / sum_d * (ddij[i_][j_] ** alpha)
-				cj += ni2 
-			ci += ni1
-
 	return X_, C1_
 
 
@@ -622,7 +747,7 @@ if __name__ == "__main__":
 	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.", required = True)
 	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
 	parser.add_argument("--log_fn", help = "Name of log file.", default = "spatial_structure.log")
-	parser.add_argument("--structure", help = "Input the original structure, in *.txt or *.npy format, for calculating RMSD and PCC.")
+	parser.add_argument("--structure", help = "Input the original structure, in *.txt or *.npy format, for calculating RMSD and PCC.", default=None)
 	start_time = time.time()
 	args = parser.parse_args()
 
@@ -805,14 +930,13 @@ if __name__ == "__main__":
 		"""
 		D = D[np.ix_(idx_map, idx_map)]
 		PM_X1 = PM_X1[idx_map]
-		output_matrix_fn = args.output_prefix + "_reconstruction_matrix.txt"
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save resolved ecDNA Hi-C matrix into %s." %output_matrix_fn)
-		np.savetxt(output_matrix_fn, D)
-		output_coordinates_fn = args.output_prefix + "_3d_reconstruction.txt"
+		# output_matrix_fn = args.output_prefix + "_expanded_matrix.txt"
+		# logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save resolved ecDNA Hi-C matrix into %s." %output_matrix_fn)
+		# np.savetxt(output_matrix_fn, D)
+		output_coordinates_fn = args.output_prefix + "_coordinates.txt"
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save resolved ecDNA 3D structure into %s." %output_coordinates_fn)
-		if args.structure == None:
-			np.savetxt(output_coordinates_fn, PM_X1)
-		else:
+		np.savetxt(output_coordinates_fn, PM_X1)
+		if args.structure != None:
 			original, reconstructed = np.loadtxt(args.structure), PM_X1
 			scale_factor = calculate_average_distance(original)
 			fr_pos_array = original / scale_factor
@@ -820,16 +944,16 @@ if __name__ == "__main__":
 			fr_pos_array = remove_nan_col(fr_pos_array)
 			mds_pos_array = remove_nan_col(mds_pos_array)
 			rmsd, X1, X2, pcc = getTransformation(mds_pos_array,fr_pos_array)
+			output_coordinates_fn = args.output_prefix + "_aligned_coordinates.txt"
 			np.savetxt(output_coordinates_fn, X1)
 	else:
-		output_matrix_fn = args.output_prefix + "_reconstruction_matrix.txt"
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save ecDNA Hi-C matrix into %s." %output_matrix_fn)
-		np.savetxt(args.output_prefix + "_reconstruction_matrix.txt", C)
-		output_coordinates_fn = args.output_prefix + "_3d_reconstruction.txt"
+		# output_matrix_fn = args.output_prefix + "_expanded_matrix.txt"
+		# logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save ecDNA Hi-C matrix into %s." %output_matrix_fn)
+		# np.savetxt(output_matrix_fn, C)
+		output_coordinates_fn = args.output_prefix + "_coordinates.txt"
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save resolved ecDNA 3D structure into %s." %output_coordinates_fn)
-		if args.structure == None:
-			np.savetxt(output_coordinates_fn, PM_X1)
-		else:
+		np.savetxt(output_coordinates_fn, PM_X1)
+		if args.structure != None:
 			original, reconstructed = np.loadtxt(args.structure), PM_X1
 			scale_factor = calculate_average_distance(original)
 			fr_pos_array = original / scale_factor
@@ -837,6 +961,7 @@ if __name__ == "__main__":
 			fr_pos_array = remove_nan_col(fr_pos_array)
 			mds_pos_array = remove_nan_col(mds_pos_array)
 			rmsd, X1, X2, pcc = getTransformation(mds_pos_array,fr_pos_array)
+			output_coordinates_fn = args.output_prefix + "_aligned_coordinates.txt"
 			np.savetxt(output_coordinates_fn, X1)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 
