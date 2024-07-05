@@ -18,7 +18,6 @@ Todo: add scatter plot option
 	each gene has only one legend
 """
 
-
 def plotstr_significant_interactions_dup_genes(pos, bin2gene, gene_colors, si, clusters, output_prefix, save_png = False):
 	num_nodes = len(pos)
 	fig = make_subplots(specs=[[{'type': 'scatter3d'}]])
