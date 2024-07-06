@@ -11,14 +11,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
-from plotly.offline import plot
+#from plotly.offline import plot
 
-"""
-Todo: add scatter plot option
-	each gene has only one legend
-"""
 
-def plotstr_significant_interactions_dup_genes(pos, bin2gene, gene_colors, si, clusters, output_prefix, save_png = False):
+def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, clusters, output_prefix, save_png = False):
 	num_nodes = len(pos)
 	fig = make_subplots(specs=[[{'type': 'scatter3d'}]])
 
@@ -75,31 +71,18 @@ def plotstr_significant_interactions_dup_genes(pos, bin2gene, gene_colors, si, c
 		edges_by_gene[gene]['bins'] = ranges_
         
 	for gene, ranges in edges_by_gene.items():
+		edge_color = gene_colors.get(gene, 'gray')
+		strand = ranges['strand']
+		gene_name_with_strand = f"{gene} ({strand})"
+		visible = 'legendonly' if gene.startswith(('LOC', 'LINC', 'MIR')) else True
+		edge_x = []
+		edge_y = []
+		edge_z = []
 		for gene_range in ranges['bins']:
-			edge_color = gene_colors.get(gene, 'gray')
-			strand = ranges['strand']
-			gene_name_with_strand = f"{gene} ({strand})"
-			visible = 'legendonly' if gene.startswith(('LOC', 'LINC', 'MIR')) else True
-			edge_x = []
-			edge_y = []
-			edge_z = []
 			for bin_num in range(gene_range[0], gene_range[1]):
 				edge_x += [pos[bin_num][0], pos[bin_num + 1][0], None]
 				edge_y += [pos[bin_num][1], pos[bin_num + 1][1], None]
 				edge_z += [pos[bin_num][2], pos[bin_num + 1][2], None]
-
-			edge_trace = go.Scatter3d(
-				x = edge_x,
-				y = edge_y,
-				z = edge_z,
-				mode = 'lines',
-				line = dict(width = 8.0, color = edge_color),
-				name = gene_name_with_strand,  # Use gene name with strand in the legend
-				showlegend = True,
-				visible = visible
-			)
-			fig.add_trace(edge_trace)
-
 			start_bin_num = gene_range[0]
 			fig.add_trace(go.Scatter3d(
 				x = [pos[start_bin_num][0]],
@@ -111,6 +94,17 @@ def plotstr_significant_interactions_dup_genes(pos, bin2gene, gene_colors, si, c
 				showlegend = False,
 				visible = visible
 			))
+		edge_trace = go.Scatter3d(
+				x = edge_x,
+				y = edge_y,
+				z = edge_z,
+				mode = 'lines',
+				line = dict(width = 8.0, color = edge_color),
+				name = gene_name_with_strand,  # Use gene name with strand in the legend
+				showlegend = True,
+				visible = visible
+		)
+		fig.add_trace(edge_trace)
 
 	clusters_ = dict()
 	for idx, row in clusters.iterrows():
@@ -250,7 +244,7 @@ if __name__ == '__main__':
 	clusters = pd.read_csv(args.clusters)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
-	plotstr_significant_interactions_dup_genes(X, bin2gene, gene_colors, si, clusters, args.output_prefix)
+	plotstr_significant_interactions_and_genes(X, bin2gene, gene_colors, si, clusters, args.output_prefix)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(args.output_prefix + "_ec3d.html"))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	    
