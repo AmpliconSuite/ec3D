@@ -962,12 +962,12 @@ if __name__ == "__main__":
 		"""
 		Reorder the result matrix
 		"""
-		PM_X = PM_X[idx_map]
+		PM_X_min = PM_X_min[idx_map]
 	output_coordinates_fn = args.output_prefix + "_coordinates.txt"
-	np.savetxt(output_coordinates_fn, PM_X)
+	np.savetxt(output_coordinates_fn, PM_X_min)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the resolved 3D structure to %s." %output_coordinates_fn)
 	if args.structure != None:
-		original, reconstructed = np.loadtxt(args.structure), PM_X
+		original, reconstructed = np.loadtxt(args.structure), PM_X_min
 		scale_factor = calculate_average_distance(original)
 		fr_pos_array = original / scale_factor
 		mds_pos_array = reconstructed / scale_factor
