@@ -744,7 +744,7 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 		else:
 			obj_list.pop(0)
 			obj_list.append(results[1])
-	return X_, results[1]
+	return X_, results[1], alpha, beta
 
 
 if __name__ == "__main__":
@@ -918,8 +918,10 @@ if __name__ == "__main__":
 	idx_map = np.array([idx_map[i] for i in range(len(idx_map))])
 	
 	repeat_ = 1
-	PM_X_min = 1 - 2 * random_state.rand(N * 3)
+	PM_X_min = np.zeros(N * 3)
 	PM_obj_min = np.inf
+	best_alpha = -3.0
+	best_beta = 1.0
 	for repeat in range(1, args.num_repeats + 1):
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repeat %d:" %repeat)
 
@@ -944,7 +946,7 @@ if __name__ == "__main__":
 		"""
 		Run Poisson model with initial X and matrix returned from MDS
 		"""
-		PM_X, PM_obj = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.structure, alpha = args.init_alpha)
+		PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.structure, alpha = args.init_alpha)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
 		if PM_obj < PM_obj_min:
 			if np.isinf(PM_obj_min):
@@ -954,6 +956,8 @@ if __name__ == "__main__":
 			PM_obj_min = PM_obj
 			PM_X_min = PM_X
 			repeat_ = repeat
+			best_alpha = alpha
+			best_beta = beta
 	
 	"""
 	Write output to file
@@ -966,6 +970,12 @@ if __name__ == "__main__":
 	output_coordinates_fn = args.output_prefix + "_coordinates.txt"
 	np.savetxt(output_coordinates_fn, PM_X_min)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the resolved 3D structure to %s." %output_coordinates_fn)
+	output_params_fn = args.output_prefix + "_hyperparameters.txt"
+	fp_w = open(output_params_fn, 'w')
+	fp_w.write("alpha\t%f\n" %best_alpha)
+	fp_w.write("beta\t%f\n" %best_beta)
+	fp_w.close()
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the hyperparameters to %s." %output_params_fn)
 	if args.structure != None:
 		original, reconstructed = np.loadtxt(args.structure), PM_X_min
 		scale_factor = calculate_average_distance(original)
