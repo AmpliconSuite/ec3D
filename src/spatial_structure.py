@@ -744,7 +744,7 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 		else:
 			obj_list.pop(0)
 			obj_list.append(results[1])
-	return X_, C1_
+	return X_, results[1]
 
 
 if __name__ == "__main__":
@@ -804,7 +804,7 @@ if __name__ == "__main__":
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded normalized collapsed ecDNA matrix.")
 	
 	"""
-	Step 1: Construct Hi-C matrix with duplication
+	Construct Hi-C matrix with duplication
 	"""
 	N = -1 # Num bins in donor Hi-C
 	bins = []
@@ -828,7 +828,7 @@ if __name__ == "__main__":
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Collapsed ecDNA matrix size: %d." %len(row_labels))				
 
 	"""
-	Step2: Run MDS with alpha = init_alpha to compute an initial X  
+	Run MDS with alpha = init_alpha to compute an initial X  
 	"""
 	bins = sorted(bins, key = lambda bin: row_labels[bin][0])
 	idx_nodup = [bi for bi in range(len(bins)) if len(row_labels[bins[bi]]) == 1]
@@ -838,7 +838,7 @@ if __name__ == "__main__":
 	C_nodup = C[np.ix_(idx_nodup, idx_nodup)]
 
 	"""
-	Step2-a: Initialize matrix with duplications
+	Initialize matrix with duplications
 	"""
 	ini_c = None
 	if N_nodup < N:
@@ -903,7 +903,7 @@ if __name__ == "__main__":
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Initialized expanded ecDNA matrix for MDS.")
 	
 	"""
-	Step2-b: Run MDS
+	Map bin indices for optimization: place the bins without duplication in front
 	"""
 	i_nodup, i_dup = 0, 0
 	idx_map = dict()
@@ -917,11 +917,18 @@ if __name__ == "__main__":
 				i_dup += 1
 	idx_map = np.array([idx_map[i] for i in range(len(idx_map))])
 	
-	for repeat in range(args.num_repeats):
+	repeat_ = 1
+	PM_X_min = 1 - 2 * random_state.rand(N * 3)
+	PM_obj_min = np.inf
+	for repeat in range(1, args.num_repeats + 1):
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repeat %d:" %repeat)
+
+		"""
+		Run MDS
+		"""
 		MDS_X1, MDS_X2 = mds(C, N, idx_nodup, idx_dup, dup_times, ini_c, alpha = args.init_alpha)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "MDS optimization completed.")
-		# MDS_X1 = np.loadtxt(args.structure)
+		""" Disabled saving of MDS output
 		if args.structure == None:
 			np.savetxt(f'{args.output_prefix}_mds_{repeat}_3d.txt', MDS_X1[idx_map])
 		else:
@@ -933,63 +940,43 @@ if __name__ == "__main__":
 			mds_pos_array = remove_nan_col(mds_pos_array)
 			rmsd, X1, X2, pcc = getTransformation(mds_pos_array,fr_pos_array)
 			np.savetxt(f'{args.output_prefix}_mds_{repeat}_3d.txt', X1)
-	
 		"""
-		Step3: Run Poisson model with initial X and matrix returned from MDS
 		"""
-		PM_X1, PM_X2 = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.structure, alpha = args.init_alpha)
+		Run Poisson model with initial X and matrix returned from MDS
+		"""
+		PM_X, PM_obj = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.structure, alpha = args.init_alpha)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
-		if N_nodup < N:
-			i_nodup, i_dup = 0, 0
-			idx_map = dict()
-			for bi in range(len(bins)):
-				if bi in idx_nodup:
-					idx_map[row_labels[bins[bi]][0]] = i_nodup
-					i_nodup += 1
-				else:
-					for i_ in range(len(row_labels[bins[bi]])):
-						idx_map[row_labels[bins[bi]][i_]] = N_nodup + i_dup
-						i_dup += 1
-			idx_map = np.array([idx_map[i] for i in range(len(idx_map))])
-			D = np.block([[C_nodup, PM_X2[: N_nodup, :]], [PM_X2.T]])
-			"""
-			Reorder the result matrix
-			"""
-			D = D[np.ix_(idx_map, idx_map)]
-			PM_X1 = PM_X1[idx_map]
-			# output_matrix_fn = args.output_prefix + "_expanded_matrix.txt"
-			# logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save resolved ecDNA Hi-C matrix into %s." %output_matrix_fn)
-			# np.savetxt(output_matrix_fn, D)
-			output_coordinates_fn = args.output_prefix + "_%d_coordinates.txt" %repeat
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save resolved ecDNA 3D structure into %s." %output_coordinates_fn)
-			np.savetxt(output_coordinates_fn, PM_X1)
-			if args.structure != None:
-				original, reconstructed = np.loadtxt(args.structure), PM_X1
-				scale_factor = calculate_average_distance(original)
-				fr_pos_array = original / scale_factor
-				mds_pos_array = reconstructed / scale_factor
-				fr_pos_array = remove_nan_col(fr_pos_array)
-				mds_pos_array = remove_nan_col(mds_pos_array)
-				rmsd, X1, X2, pcc = getTransformation(mds_pos_array,fr_pos_array)
-				output_coordinates_fn = args.output_prefix + "_%d_aligned_coordinates.txt" %repeat
-				np.savetxt(output_coordinates_fn, X1)
-		else:
-			# output_matrix_fn = args.output_prefix + "_expanded_matrix.txt"
-			# logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save ecDNA Hi-C matrix into %s." %output_matrix_fn)
-			# np.savetxt(output_matrix_fn, C)
-			output_coordinates_fn = args.output_prefix + "_%d_coordinates.txt" %repeat
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Save resolved ecDNA 3D structure into %s." %output_coordinates_fn)
-			np.savetxt(output_coordinates_fn, PM_X1)
-			if args.structure != None:
-				original, reconstructed = np.loadtxt(args.structure), PM_X1
-				scale_factor = calculate_average_distance(original)
-				fr_pos_array = original / scale_factor
-				mds_pos_array = reconstructed / scale_factor
-				fr_pos_array = remove_nan_col(fr_pos_array)
-				mds_pos_array = remove_nan_col(mds_pos_array)
-				rmsd, X1, X2, pcc = getTransformation(mds_pos_array,fr_pos_array)
-				output_coordinates_fn = args.output_prefix + "_%d_aligned_coordinates.txt" %repeat
-				np.savetxt(output_coordinates_fn, X1)
+		if PM_obj < PM_obj_min:
+			if np.isinf(PM_obj_min):
+				logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reset the current best repetition to %d." %(repeat))
+			else:
+				logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repetition %d showed a better objective than current best repetition %d." %(repeat, repeat_)) 
+			PM_obj_min = PM_obj
+			PM_X_min = PM_X
+			repeat_ = repeat
+	
+	"""
+	Write output to file
+	"""
+	if N_nodup < N:
+		"""
+		Reorder the result matrix
+		"""
+		PM_X = PM_X[idx_map]
+	output_coordinates_fn = args.output_prefix + "_coordinates.txt"
+	np.savetxt(output_coordinates_fn, PM_X)
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the resolved 3D structure to %s." %output_coordinates_fn)
+	if args.structure != None:
+		original, reconstructed = np.loadtxt(args.structure), PM_X
+		scale_factor = calculate_average_distance(original)
+		fr_pos_array = original / scale_factor
+		mds_pos_array = reconstructed / scale_factor
+		fr_pos_array = remove_nan_col(fr_pos_array)
+		mds_pos_array = remove_nan_col(mds_pos_array)
+		rmsd, X1, X2, pcc = getTransformation(mds_pos_array, fr_pos_array)
+		output_coordinates_fn = args.output_prefix + "_%d_aligned_coordinates.txt"
+		np.savetxt(output_coordinates_fn, X1)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the aligned 3D structure to %s." %output_coordinates_fn)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 
 
