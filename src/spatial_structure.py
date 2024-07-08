@@ -704,7 +704,7 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 	gamma = reg
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Regularizer weight %f * N_e." %(gamma))
 	for it in range(round):
-		print(f'Poisson iteration {it+1}')
+		#print(f'Poisson iteration {it+1}')
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Begin iteration %d." %(it + 1))
 		
 		# estimate alpha and beta by autograd
