@@ -3,6 +3,7 @@ import argparse
 from sklearn.metrics import euclidean_distances
 from scipy import stats
 
+
 chr_idx = {'1': 0, '2': 1, '3': 2, '4': 3,
         '5': 4, '6': 5, '7': 6, '8': 7,
         '9': 8, '10': 9, '11': 10, '12': 11,
@@ -41,6 +42,7 @@ def reorder_bins(matrix, intrvls, res):
 		start += intrvl_size
 	return matrix
 
+
 def rmsd(X, Y):
 	"""
 	Calculate the RMSD between X and Y
@@ -68,18 +70,21 @@ def pearson(mat1, mat2):
 	r, p = stats.pearsonr(vec1, vec2) # spearmanr
 	return r
 
-def normalize_structure(structure):
-    """Normalize the structure to have unit variance."""
-    max_distance = np.linalg.norm(structure, axis=0).max()
-    return structure / max_distance
 
-def getTransformation(X, Y, centering = True, scaling = True, reflection = True):
+def normalize_structure(structure):
+	"""
+	Normalize the structure to have unit variance.
+	"""
+	max_distance = np.linalg.norm(structure, axis = 0).max()
+	return structure / max_distance
+
+
+def getTransformation(X, Y, centering = True, scaling = True, reflection = False):
 	"""
 	kabsch method: Recovers transformation needed to align structure1 with structure2.
 	"""
 	X = X.copy()
 	Y = Y.copy()
-
 	X = X.T
 	Y = Y.T
 

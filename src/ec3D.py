@@ -57,7 +57,11 @@ if __name__ == "__main__":
 		p = subprocess.Popen(expand_matrix_command, shell = True)
 		p_status = p.wait()
 
-	si_command = "python3 %s/significant_interactions.py --matrix " %src_dir + args.output_prefix + "_expanded_matrix.txt"
+	si_command = ""
+	if dup_flag:
+		si_command += "python3 %s/significant_interactions.py --matrix " %src_dir + args.output_prefix + "_expanded_matrix.txt"
+	else:
+		si_command += "python3 %s/significant_interactions.py --matrix " %src_dir + args.output_prefix + "_expanded_matrix.npy"
 	si_command += (" --output_prefix " + args.output_prefix)
 	print (si_command)
 	p = subprocess.Popen(si_command, shell = True)
@@ -65,7 +69,10 @@ if __name__ == "__main__":
 
 	plt_command_1 = "python3 %s/plot_interactions.py --ecdna_cycle " %src_dir + args.ecdna_cycle
 	plt_command_1 += (" --resolution " + args.resolution)
-	plt_command_1 += (" --matrix " + args.output_prefix + "_expanded_matrix.txt")
+	if dup_flag:
+		plt_command_1 += (" --matrix " + args.output_prefix + "_expanded_matrix.txt")
+	else:
+		plt_command_1 += (" --matrix " + args.output_prefix + "_expanded_matrix.npy")
 	plt_command_1 += (" --annotation " + args.output_prefix + "_annotations.bed")
 	plt_command_1 += (" --interactions " + args.output_prefix + "_significant_interactions.csv")
 	plt_command_1 += (" --output_prefix " + args.output_prefix)
