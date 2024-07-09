@@ -978,12 +978,7 @@ if __name__ == "__main__":
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the hyperparameters to %s." %output_params_fn)
 	if args.structure != None:
 		original, reconstructed = np.loadtxt(args.structure), PM_X_min
-		scale_factor = calculate_average_distance(original)
-		fr_pos_array = original / scale_factor
-		mds_pos_array = reconstructed / scale_factor
-		fr_pos_array = remove_nan_col(fr_pos_array)
-		mds_pos_array = remove_nan_col(mds_pos_array)
-		rmsd, X1, X2, pcc = getTransformation(mds_pos_array, fr_pos_array)
+		rmsd, X1, X2, pcc = getTransformation(reconstructed, original)
 		output_coordinates_fn = args.output_prefix + "_%d_aligned_coordinates.txt"
 		np.savetxt(output_coordinates_fn, X1)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the aligned 3D structure to %s." %output_coordinates_fn)

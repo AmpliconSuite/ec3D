@@ -83,7 +83,7 @@ def pearson(mat1, mat2):
 	return r
 
 
-def getTransformation(X, Y, centering = False, scaling = True, reflection = False):
+def getTransformation(X, Y, centering = True, scaling = True, reflection = False):
 	"""
 	kabsch method: Recovers transformation needed to align structure1 with structure2.
 	"""
