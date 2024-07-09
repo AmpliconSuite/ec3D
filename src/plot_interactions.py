@@ -21,7 +21,6 @@ rcParams['pdf.fonttype'] = 42
 """
 Todo:
 (1) add --rotate-to-min - update coral
-(4) remove diagonal SVs - use additional script
 """
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = "Visualize significant interactions identified in ecDNA.")

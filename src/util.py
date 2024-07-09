@@ -28,7 +28,7 @@ def read_ecDNA_cycle(fn, res):
 	return intrvls
 
 
-def reorder_bins(matrix, intrvls):
+def reorder_bins(matrix, intrvls, res):
 	"""
 	Correct the order of bins for segment with orientation '-'
 	"""
@@ -40,19 +40,6 @@ def reorder_bins(matrix, intrvls):
 			matrix[start: start + intrvl_size, :] = matrix[start: start + intrvl_size, :][::-1, :]
 		start += intrvl_size
 	return matrix
-
-def calculate_average_distance(array):
-	diff_array = array[:, None, :] - array[None, :, :]
-	distance_array = np.sqrt((diff_array**2).sum(-1))
-	average_distance = np.mean(distance_array)
-	return average_distance
-
-
-def remove_nan_col(cord):
-	index = np.isnan(cord).all(axis=1)
-	cord = np.delete(cord, index, axis=0)
-	return cord
-
 
 def rmsd(X, Y):
 	"""
@@ -81,8 +68,12 @@ def pearson(mat1, mat2):
 	r, p = stats.pearsonr(vec1, vec2) # spearmanr
 	return r
 
+def normalize_structure(structure):
+    """Normalize the structure to have unit variance."""
+    max_distance = np.linalg.norm(structure, axis=0).max()
+    return structure / max_distance
 
-def getTransformation(X, Y, centering = False, scaling = True, reflection = False):
+def getTransformation(X, Y, centering = True, scaling = True, reflection = True):
 	"""
 	kabsch method: Recovers transformation needed to align structure1 with structure2.
 	"""
@@ -91,18 +82,16 @@ def getTransformation(X, Y, centering = False, scaling = True, reflection = Fals
 
 	X = X.T
 	Y = Y.T
-	centroid_X = X.mean(axis = 1, keepdims = True)
-	centroid_Y = Y.mean(axis = 1, keepdims = True)
 
-	X = X - centroid_X
-	Y = Y - centroid_Y
-
+	if centering:
+		centroid_X = X.mean(axis = 1, keepdims = True)
+		centroid_Y = Y.mean(axis = 1, keepdims = True)
+		X = X - centroid_X
+		Y = Y - centroid_Y
+	
 	if scaling:
-		scale_X = np.sqrt((X ** 2).sum() / X.shape[1])
-		scale_Y = np.sqrt((Y ** 2).sum() / Y.shape[1])
-		to_scale = scale_Y if type(scaling) is bool else float(scaling)
-		X = X / (scale_X / to_scale)
-		Y = Y / (scale_Y / to_scale)
+		X = normalize_structure(X)
+		Y = normalize_structure(Y)
 
 	C = np.dot(X, Y.transpose())
 	V, _, Wt = np.linalg.svd(C)
@@ -115,14 +104,12 @@ def getTransformation(X, Y, centering = False, scaling = True, reflection = Fals
 	U = np.dot(Wt.T, np.dot(I, V.T))
 	X = np.dot(U, X)
 
-	if not centering:
-		X = X + centroid_Y
-		Y = Y + centroid_Y
 	dx = euclidean_distances(X.T)
 	dy = euclidean_distances(Y.T)
 	pr = pearson(dx, dy)
 	# print(rmsd(X.T, Y.T))
 	return rmsd(X.T, Y.T), X.T, Y.T, pr
+
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description = "Compute RMSD and PCC.")
@@ -131,8 +118,8 @@ if __name__ == "__main__":
 	parser.add_argument("--save", help = "Input the second structure.", type=bool, default=False, required = False)
 	args = parser.parse_args()
 
-	structure1, structure2 = np.loadtxt(args.structure1)[51:67], np.loadtxt(args.structure2)[71:87]
-	rmsd, X1, X2, pcc = getTransformation(structure1, structure2)
+	structure1, structure2 = np.loadtxt(args.structure1), np.loadtxt(args.structure2)
+	rmsd, X1, X2, pcc = getTransformation(structure1, structure2) # structure1 is transformed
 	print(f'RMSD: {rmsd}, PCC: {pcc}')
 	if args.save:
 		np.savetxt('structure1.txt', X1)

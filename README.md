@@ -1,6 +1,26 @@
-ec3D: reconstructing the 3D structure of extrachromosomal DNA molecules
+# ec3D: reconstructing the 3D structure of extrachromosomal DNA molecules
 
-To do: add batch mode
+## Dependencies 
+- Cooler (https://cooler.readthedocs.io/)
+- ICED (https://members.cbio.mines-paristech.fr/~nvaroquaux/iced/)
+- SciPy (https://scipy.org/)
+- scikit-learn (https://scikit-learn.org)
+- autograd (https://github.com/HIPS/autograd)
+- NetworkX (https://networkx.org/)
+- python-louvain (https://python-louvain.readthedocs.io/en/latest/)
+- pandas (https://pandas.pydata.org/)
+- Plotly (https://plotly.com/python/) and Kaleido (https://pypi.org/project/kaleido/)
+
+## Installation
+
+## Running
+### Batch mode
+```
+python3 ec3D.py --cool <path of *.cool file>
+--ecdna_cycle <path of *.bed file>
+--resolution 10000
+--output_prefix <prefix of output, including path>
+```
 
 ### Step 1 - Preprocessing Hi-C
 Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```*.bed``` format), output the Hi-C matrix corresponding to ecDNA to work on in the following steps, and the annotation of each bin at a given resolution. Example command:
