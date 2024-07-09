@@ -196,7 +196,7 @@ if __name__ == '__main__':
 	Read annotations and map bins to gene names
 	"""
 	oncogenes = dict()
-	oncogene_fn = os.getcwd().replace("src", "data_repo") + "/"
+	oncogene_fn = os.path.dirname(os.path.realpath(__file__)).replace("src", "data_repo") + "/"
 	if args.ref == 'hg19' or args.ref == 'GRCh37':
 		oncogene_fn += "AC_oncogene_set_GRCh37.gff"
 	elif args.ref == 'hg38' or args.ref == 'GRCh38':
