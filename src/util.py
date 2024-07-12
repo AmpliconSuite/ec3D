@@ -115,6 +115,36 @@ def getTransformation(X, Y, centering = True, scaling = True, reflection = False
 	# print(rmsd(X.T, Y.T))
 	return rmsd(X.T, Y.T), X.T, Y.T, pr
 
+# 1. Scaling
+def scale(points, scale_factors):
+	scale_matrix = np.diag(scale_factors)
+	return np.dot(points, scale_matrix)
+
+# 2. Rotation
+def rotate(points, theta_x, theta_y, theta_z):
+	# Rotation matrix around x-axis
+	R_x = np.array([[1, 0, 0],
+					[0, np.cos(theta_x), -np.sin(theta_x)],
+					[0, np.sin(theta_x), np.cos(theta_x)]])
+	
+	# Rotation matrix around y-axis
+	R_y = np.array([[np.cos(theta_y), 0, np.sin(theta_y)],
+					[0, 1, 0],
+					[-np.sin(theta_y), 0, np.cos(theta_y)]])
+	
+	# Rotation matrix around z-axis
+	R_z = np.array([[np.cos(theta_z), -np.sin(theta_z), 0],
+					[np.sin(theta_z), np.cos(theta_z), 0],
+					[0, 0, 1]])
+	
+	# Combined rotation matrix
+	R = np.dot(R_z, np.dot(R_y, R_x))
+	
+	return np.dot(points, R)
+
+# 3. Translation
+def translate(points, translation_vector):
+	return points + translation_vector
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description = "Compute RMSD and PCC.")
@@ -124,6 +154,21 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 
 	structure1, structure2 = np.loadtxt(args.structure1), np.loadtxt(args.structure2)
+
+	# Scaling factors for x, y, z
+	scale_factors = np.array([2, 2, 2])
+	# structure2 = scale(structure2, scale_factors)
+
+	# Rotation angles (in radians) for x, y, z
+	theta_x = np.pi / 2
+	theta_y = np.pi / 3
+	theta_z = np.pi / 4
+	# structure2 = rotate(structure2, theta_x, theta_y, theta_z)
+
+	# Translation vector for x, y, z
+	translation_vector = np.array([1, 1, 1])
+	# structure2 = translate(structure2, translation_vector)
+
 	rmsd, X1, X2, pcc = getTransformation(structure1, structure2) # structure1 is transformed
 	print(f'RMSD: {rmsd}, PCC: {pcc}')
 	if args.save:
