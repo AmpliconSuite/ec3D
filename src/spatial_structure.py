@@ -756,6 +756,7 @@ if __name__ == "__main__":
 	parser.add_argument("--max_iter_likelihood", help = "Maximum number of iterations for estimating the structure with L-BFGS.", type = int, default = 10000)
 	parser.add_argument("--max_iter_exponent", help = "Maximum number of iterations for estimating alpha/beta with L-BFGS.", type = int, default = 5000)
 	parser.add_argument("--structure", help = "Input the true structure, in *.txt or *.npy format, for calculating RMSD and PCC.")
+	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
 	
 	start_time = time.time()
 	args = parser.parse_args()
@@ -963,8 +964,12 @@ if __name__ == "__main__":
 		Reorder the result matrix
 		"""
 		PM_X_min = PM_X_min[idx_map]
-	output_coordinates_fn = args.output_prefix + "_coordinates.txt"
-	np.savetxt(output_coordinates_fn, PM_X_min)
+	if args.save_npy:
+		output_coordinates_fn = args.output_prefix + "_coordinates.npy"
+		np.save(output_coordinates_fn, PM_X_min)
+	else:
+		output_coordinates_fn = args.output_prefix + "_coordinates.txt"
+		np.savetxt(output_coordinates_fn, PM_X_min)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the resolved 3D structure to %s." %output_coordinates_fn)
 	output_params_fn = args.output_prefix + "_hyperparameters.txt"
 	fp_w = open(output_params_fn, 'w')
@@ -975,8 +980,12 @@ if __name__ == "__main__":
 	if args.structure != None:
 		structure1, structure2 = PM_X_min, np.loadtxt(args.structure)
 		rmsd, X1, X2, pcc = getTransformation(structure1, structure2) # structure1 is transformed
-		output_coordinates_fn = args.output_prefix + "_aligned_coordinates.txt"
-		np.savetxt(output_coordinates_fn, X1)
+		if args.save_npy:
+			output_coordinates_fn = args.output_prefix + "_aligned_coordinates.npy"
+			np.save(output_coordinates_fn, X1)
+		else:
+			output_coordinates_fn = args.output_prefix + "_aligned_coordinates.txt"
+			np.savetxt(output_coordinates_fn, X1)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the aligned 3D structure to %s." %output_coordinates_fn)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 

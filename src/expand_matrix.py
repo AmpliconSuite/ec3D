@@ -63,6 +63,7 @@ if __name__ == "__main__":
 	parser.add_argument("--output_prefix", help = "Prefix of the output files.", required = True)
 	parser.add_argument("--strategy", help = "One option from redist/poisson/hybrid.", default = "redist")
 	parser.add_argument("--log_fn", help = "Name of log file.")
+	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
 	start_time = time.time()
 	args = parser.parse_args()
 
@@ -257,8 +258,12 @@ if __name__ == "__main__":
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reconstructed the expanded matrix.")
 	D = normalization.ICE_normalization(D)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Normalized the expanded matrix.")
-	np.savetxt(args.output_prefix + "_expanded_matrix.txt", D)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the expanded matrix to %s." %(args.output_prefix + "_expanded_matrix.txt"))
+	if args.save_npy:
+		np.save(args.output_prefix + "_expanded_matrix.npy", D)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the expanded matrix to %s." %(args.output_prefix + "_expanded_matrix.npy"))
+	else:
+		np.savetxt(args.output_prefix + "_expanded_matrix.txt", D)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the expanded matrix to %s." %(args.output_prefix + "_expanded_matrix.txt"))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 
 
