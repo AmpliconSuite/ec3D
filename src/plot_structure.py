@@ -7,11 +7,44 @@ import os
 import argparse
 import time
 import logging
+import warnings
 import numpy as np
-import pandas as pd
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 #from plotly.offline import plot
+
+from util import *
+
+
+def add_arrow(fig, start_point, end_point, color = 'rgb(255,0,0)', size = 0.4):
+	# Calculate the direction of the arrow
+	direction = np.array(end_point) - np.array(start_point)
+	length = np.linalg.norm(direction)
+	direction = direction / length  # Normalize the direction vector
+
+	# Define the arrow shaft
+	arrow_shaft_end = np.array(end_point) - direction * size * length
+
+	left = np.cross(direction, [0, 0, 1])
+	if np.linalg.norm(left) == 0:  # direction is parallel to [0, 0, 1]
+		left = np.cross(direction, [0, 1, 0])  # Use a different vector if parallel
+
+	left = left / np.linalg.norm(left) * size * length   # Normalize and scale the left vector
+
+	# Calculate the right vector as perpendicular to both direction and left
+	right = np.cross(direction, left)
+	right = right / np.linalg.norm(right) * size * length  
+
+	# Add the lines representing the arrowhead sides
+	for side in [left, right]:
+		arrow_side_end = arrow_shaft_end + side
+		fig.add_trace(go.Scatter3d(x = [arrow_side_end[0], end_point[0]],
+					y = [arrow_side_end[1], end_point[1]],
+					z = [arrow_side_end[2], end_point[2]],
+					mode = 'lines',
+					line = dict(color = color, width = 4),
+					showlegend = False
+		))
 
 
 def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, clusters, output_prefix, save_png = False):
@@ -71,6 +104,8 @@ def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, c
 		edges_by_gene[gene]['bins'] = ranges_
         
 	for gene, ranges in edges_by_gene.items():
+		if gene.startswith(('LOC', 'LINC', 'MIR')):
+			continue
 		edge_color = gene_colors.get(gene, 'gray')
 		strand = ranges['strand']
 		gene_name_with_strand = f"{gene} ({strand})"
@@ -79,6 +114,8 @@ def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, c
 		edge_y = []
 		edge_z = []
 		for gene_range in ranges['bins']:
+			if gene_range[0] == gene_range[1]:
+				continue
 			for bin_num in range(gene_range[0], gene_range[1]):
 				edge_x += [pos[bin_num][0], pos[bin_num + 1][0], None]
 				edge_y += [pos[bin_num][1], pos[bin_num + 1][1], None]
@@ -94,6 +131,12 @@ def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, c
 				showlegend = False,
 				visible = visible
 			))
+			if strand == '+':
+				add_arrow(fig, pos[gene_range[1] - 1], pos[gene_range[1]], color = edge_color)
+			else:
+				add_arrow(fig, pos[gene_range[0] + 1], pos[gene_range[0]], color = edge_color)
+		if not edge_x:
+			continue
 		edge_trace = go.Scatter3d(
 				x = edge_x,
 				y = edge_y,
@@ -107,18 +150,18 @@ def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, c
 		fig.add_trace(edge_trace)
 
 	clusters_ = dict()
-	for idx, row in clusters.iterrows():
+	for c in clusters:
 		try:
-			clusters_[row['cluster']].append(row['bin'])
+			clusters_[int(c[1])].append(int(c[0]))
 		except:
-			clusters_[row['cluster']] = [row['bin']]
+			clusters_[int(c[1])] = [int(c[0])]
 	cluster_colors = [f'rgb({np.random.randint(0,255)}, {np.random.randint(0,255)}, {np.random.randint(0,255)})'
 			for cluster in clusters_.keys()]
 	for cluster_id in sorted(clusters_.keys()):
 		nodes = clusters_[cluster_id]
 		cluster_edges_x, cluster_edges_y, cluster_edges_z = [], [], []
-		for idx in range(len(si)):
-			i, j = si['bin1'].values[idx], si['bin2'].values[idx]
+		for si_item in si:
+			i, j = int(si_item[0]), int(si_item[1])
 			if i in nodes and j in nodes:
 				cluster_edges_x.extend([pos[i][0], pos[j][0], None])
 				cluster_edges_y.extend([pos[i][1], pos[j][1], None])
@@ -148,7 +191,8 @@ if __name__ == '__main__':
 	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.", required = True)
 	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.", required = True)
 	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
-	parser.add_argument("--filter_interactions_by_percentile", help = ".")
+	parser.add_argument("--download_gene", help = "Download gene list from UCSC Genome Browser.", action = 'store_true')
+	parser.add_argument("--gene_fn", help = "Parse user provided gene list, in *.gff of *.gtf format.")
 	parser.add_argument("--log_fn", help = "Name of log file.")
 	start_time = time.time()
 	args = parser.parse_args()
@@ -158,7 +202,7 @@ if __name__ == '__main__':
 	"""
 	log_fn = ""
 	if not args.log_fn:
-		log_fn = args.output_prefix + "_plot_structure.log"
+		log_fn = args.output_prefix + "_visualize_structure.log"
 	else:
 		log_fn = args.log_fn
 	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
@@ -188,7 +232,14 @@ if __name__ == '__main__':
 	"""
 	Read significant interactions
 	"""
-	si = pd.read_csv(args.interactions)
+	si = []
+	i = 0
+	fp = open(args.interactions, 'r')
+	for line in fp:
+		if i > 0:
+			si.append(line.strip().split('\t'))
+		i += 1
+	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded significant interactions.")
 	logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "Significant interactions: %s" %si)
 
@@ -197,24 +248,64 @@ if __name__ == '__main__':
 	"""
 	oncogenes = dict()
 	oncogene_fn = os.path.dirname(os.path.realpath(__file__)).replace("src", "data_repo") + "/"
-	if args.ref == 'hg19' or args.ref == 'GRCh37':
-		oncogene_fn += "AC_oncogene_set_GRCh37.gff"
-	elif args.ref == 'hg38' or args.ref == 'GRCh38':
-		oncogene_fn += "AC_oncogene_set_hg38.gff"
-	elif args.ref == 'mm10' or args.ref == 'GRCm38':
-		oncogene_fn += "AC_oncogene_set_mm10.gff"
-	else:
-		print("Reference must be one from {hg19, hg38, GRCh38, mm10}.")
-		os.abort()
+	if args.download_gene and not args.gene_fn:
+		wget_command = "wget -P " + oncogene_fn
+		if args.ref == 'hg19' or args.ref == 'GRCh37':
+			wget_command += " https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/genes/hg19.ncbiRefSeq.gtf.gz"
+		elif args.ref == 'hg38' or args.ref == 'GRCh38':
+			wget_command += " https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/genes/hg38.ncbiRefSeq.gtf.gz"
+		elif args.ref == 'mm10' or args.ref == 'GRCm38':
+			wget_command += " https://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/genes/mm10.ncbiRefSeq.gtf.gz"
+		else:
+			print("Reference must be one from {hg19, hg38, GRCh38, mm10}.")
+			os.abort()
+		print (wget_command)
+		os.system(wget_command)
+		gunzip_command = ("gunzip " + oncogene_fn + "*.gz")
+		os.system(gunzip_command)
+		if args.ref == 'hg19' or args.ref == 'GRCh37':
+			oncogene_fn += "hg19.ncbiRefSeq.gtf"
+		elif args.ref == 'hg38' or args.ref == 'GRCh38':
+			oncogene_fn += "hg38.ncbiRefSeq.gtf"
+		elif args.ref == 'mm10' or args.ref == 'GRCm38':
+			oncogene_fn += "mm10.ncbiRefSeq.gtf"
+	elif args.gene_fn:
+		if args.download_gene:
+			warnings.warn("Will use the specified gene list, downloading disabled.")	
+		oncogene_fn = args.gene_fn
+	else: # Use the oncogene files provided in data_repo
+		if args.ref == 'hg19' or args.ref == 'GRCh37':
+			oncogene_fn += "AC_oncogene_set_GRCh37.gff"
+		elif args.ref == 'hg38' or args.ref == 'GRCh38':
+			oncogene_fn += "AC_oncogene_set_hg38.gff"
+		elif args.ref == 'mm10' or args.ref == 'GRCm38':
+			oncogene_fn += "AC_oncogene_set_mm10.gff"
+		else:
+			print("Reference must be one from {hg19, hg38, GRCh38, mm10}.")
+			os.abort()
+ 
 	fp = open(oncogene_fn, 'r')
 	for line in fp:
-		s = line.strip().split()
+		s = line.strip().split('\t')
 		if "chr" not in s[0]:
 			s[0] = "chr" + s[0]
-		try:
-			oncogenes[s[0]].append([int(s[3]), int(s[4]), s[6], s[-1].split(';')[2][5:]])
-		except:
-			oncogenes[s[0]] = [[int(s[3]), int(s[4]), s[6], s[-1].split(';')[2][5:]]]
+		if s[0] not in chr_idx:
+			continue
+		if s[0] not in oncogenes:
+			oncogenes[s[0]] = dict()
+		gene_name = ""
+		for token in s[-1].split(';'):
+			if "Name" in token:
+				gene_name = token[5:]
+				break
+			if "gene_name" in token:
+				gene_name = token.strip()[11:-1]
+				break
+		if gene_name not in oncogenes[s[0]]:
+			oncogenes[s[0]][gene_name] = [int(s[3]), int(s[4]), s[6]]
+		else:
+			oncogenes[s[0]][gene_name][0] = min(int(s[3]), oncogenes[s[0]][gene_name][0])
+			oncogenes[s[0]][gene_name][1] = max(int(s[4]), oncogenes[s[0]][gene_name][1])
 	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Parsed oncogene names and strand from %s." %(oncogene_fn))
 	
@@ -223,11 +314,11 @@ if __name__ == '__main__':
 	fp = open(args.annotation, 'r')
 	for line in fp:
 		s = line.strip().split()
-		for gene_intrvl in oncogenes[s[0]]:
+		for (gene, gene_intrvl) in oncogenes[s[0]].items():
 			if int(s[1]) <= gene_intrvl[1] and gene_intrvl[0] <= int(s[2]):
 				for i in range(3, len(s)):
-					bin2gene[int(s[i])] = {'gene': gene_intrvl[3], 'strand': gene_intrvl[2]}
-					unique_genes.add(gene_intrvl[3])	
+					bin2gene[int(s[i])] = {'gene': gene, 'strand': gene_intrvl[2]}
+					unique_genes.add(gene)	
 	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped the following bins to genes.")
 	for bin_num in bin2gene:
@@ -241,7 +332,14 @@ if __name__ == '__main__':
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Assigned one distinct color to each gene name.")
 	
 	# Read in and visualize clusters
-	clusters = pd.read_csv(args.clusters)
+	clusters = []
+	i = 0
+	fp = open(args.clusters, 'r')
+	for line in fp:
+		if i > 0:
+			clusters.append(line.strip().split('\t'))
+		i += 1
+	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
 	plotstr_significant_interactions_and_genes(X, bin2gene, gene_colors, si, clusters, args.output_prefix)

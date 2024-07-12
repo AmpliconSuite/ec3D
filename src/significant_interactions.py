@@ -10,6 +10,7 @@ import numpy as np
 import networkx as nx
 import community
 
+from sklearn.metrics import euclidean_distances
 from scipy.stats import poisson, nbinom
 from statsmodels.stats.multitest import multipletests
 
@@ -20,6 +21,10 @@ if __name__ == "__main__":
 	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
 	parser.add_argument("--pval_cutoff", help = "P-value cutoff as significant interactions.", type = float, default = 0.05)
 	parser.add_argument("--model", help = "Statistical model used to computet the P-values", default = "negative_binomial")
+	parser.add_argument("--filter_interactions_by_percentile", 
+				help = "Only keep distant significant interactions greater than the specified percentile wrt genomic distance/spatial distance.", 
+				type = int)
+	parser.add_argument("--structure", help = "The 3D structure of ecDNA, in *.txt or *.npy format.")
 	parser.add_argument("--log_fn", help = "Name of log file.")
 	start_time = time.time()
 	args = parser.parse_args()
@@ -106,40 +111,68 @@ if __name__ == "__main__":
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
 
 	"""
-	Output the significant interactions to csv file
+	Output the significant interactions to tsv file
 	"""
-	csv_fn = args.output_prefix + "_significant_interactions.csv"
-	fp = open(csv_fn, 'w')
-	fp.write('bin1,bin2,interaction,p_value,q_value\n')
+	si = []
 	qi = 0
-	G = nx.Graph()
 	for i in range(N):
 		for j in range(i + 1, N):
 			if qvals[qi] <= args.pval_cutoff:
-				if i not in G:
-					G.add_node(i)
-				if j not in G:
-					G.add_node(j)
-				G.add_edge(i, j)
-				fp.write("%d,%d,%f,%f,%f\n" %(i, j, data[i][j], pvals[qi], qvals[qi]))
+				si.append([i, j, qi])
 			qi += 1
+
+	if args.filter_interactions_by_percentile:
+		if not args.structure:
+			print("3D structure is required to compute spatial distances.")
+			os.abort()
+		X = np.array([])
+		if args.structure.endswith(".txt"):
+			X = np.loadtxt(args.structure)
+		elif args.structure.endswith(".npy"):
+			X = np.load(args.structure)
+		else:
+			raise OSError("Input matrix must be in *.txt or *.npy format.")
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
+		
+		dis = euclidean_distances(X)
+		ratio = []
+		for i in range(N):
+			for j in range(i + 1, N):
+				ratio.append(min(abs(i - j), N - abs(i - j)) / dis[i][j])
+		si_thredhold = np.percentile(ratio, args.filter_interactions_by_percentile)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Threshold for distant significant interactions: %f." %si_thredhold)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "There are %d significant interactions before filtering." %len(si))
+		si = [si_item for si_item in si if min(abs(si_item[0] - si_item[1]), N - abs(si_item[0] - si_item[1])) / dis[si_item[0]][si_item[1]] >= si_thredhold]
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "There are %d significant interactions after filtering." %len(si))
+	
+	G = nx.Graph()
+	tsv_fn = args.output_prefix + "_significant_interactions.tsv"
+	fp = open(tsv_fn, 'w')
+	fp.write('bin1\tbin2\tinteraction\tp_value\tq_value\n')
+	for si_item in si:
+		if si_item[0] not in G:
+			G.add_node(si_item[0])
+		if si_item[1] not in G:
+			G.add_node(si_item[1])
+		G.add_edge(si_item[0], si_item[1])
+		fp.write("%d\t%d\t%f\t%f\t%f\n" %(si_item[0], si_item[1], data[si_item[0]][si_item[1]], pvals[si_item[2]], qvals[si_item[2]]))
 	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote significant interactions to %s." %csv_fn)
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote significant interactions to %s." %tsv_fn)
 
 	"""
 	Cluster significant interactions
-	"""
+	"""	
 	partition = community.best_partition(G)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clustered bins involved in significant interactions.")
 
 	modularity_score = community.modularity(partition, G)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Modularity score of the partition: %f." %modularity_score)
     
-	cluster_fn = args.output_prefix + "_clustered_bins.csv"
+	cluster_fn = args.output_prefix + "_clustered_bins.tsv"
 	fp = open(cluster_fn, 'w')
-	fp.write('bin,cluster\n')
+	fp.write('bin\tcluster\n')
 	for node in sorted(partition.keys()):
-		fp.write("%d,%d\n" %(node, partition[node]))
+		fp.write("%d\t%d\n" %(node, partition[node]))
 	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "%d Clusters were detected with Louvain Clustering." %len(set(partition.values())))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote Clustered bins to %s." %cluster_fn)

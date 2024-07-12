@@ -74,15 +74,15 @@ if __name__ == "__main__":
 	else:
 		plt_command_1 += (" --matrix " + args.output_prefix + "_expanded_matrix.npy")
 	plt_command_1 += (" --annotation " + args.output_prefix + "_annotations.bed")
-	plt_command_1 += (" --interactions " + args.output_prefix + "_significant_interactions.csv")
+	plt_command_1 += (" --interactions " + args.output_prefix + "_significant_interactions.tsv")
 	plt_command_1 += (" --output_prefix " + args.output_prefix)
 	print (plt_command_1)
 	p = subprocess.Popen(plt_command_1, shell = True)
 	p_status = p.wait()
 	
 	plt_command_2 = "python3 %s/plot_structure.py --structure " %src_dir + args.output_prefix + "_coordinates.txt"
-	plt_command_2 += (" --interactions " + args.output_prefix + "_significant_interactions.csv")
-	plt_command_2 += (" --clusters " + args.output_prefix + "_clustered_bins.csv")
+	plt_command_2 += (" --interactions " + args.output_prefix + "_significant_interactions.tsv")
+	plt_command_2 += (" --clusters " + args.output_prefix + "_clustered_bins.tsv")
 	plt_command_2 += (" --annotation " + args.output_prefix + "_annotations.bed --ref " + args.ref)
 	plt_command_2 += (" --output_prefix " + args.output_prefix)
 	print (plt_command_2)

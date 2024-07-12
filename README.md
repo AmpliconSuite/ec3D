@@ -8,7 +8,6 @@
 - autograd (https://github.com/HIPS/autograd)
 - NetworkX (https://networkx.org/)
 - python-louvain (https://python-louvain.readthedocs.io/en/latest/)
-- pandas (https://pandas.pydata.org/)
 - Plotly (https://plotly.com/python/) and Kaleido (https://pypi.org/project/kaleido/)
 
 ## Installation

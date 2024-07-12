@@ -177,7 +177,7 @@ if __name__ == '__main__':
 				for idx in row_labels[bin]:
 					idx_map[idx] = idx_dedup.index(row_labels[bin][0])
 			for line in fp:
-				s = line.strip().split(',')
+				s = line.strip().split('\t')
 				try:
 					bin1 = idx_map[int(s[0])]
 					bin2 = idx_map[int(s[1])]
@@ -190,7 +190,7 @@ if __name__ == '__main__':
 			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped significant interactions to collapsed matrix.")
 		else:
 			for line in fp:
-				s = line.strip().split(',')
+				s = line.strip().split('\t')
 				try:
 					si_x.append(int(s[1]))
 					si_y.append(int(s[0]))
@@ -237,9 +237,9 @@ if __name__ == '__main__':
 	ax.set_yticklabels(yticklbl[1:], fontsize = fontsize, minor = False)
 	ax.set_ylabel("Bins (%dKb resolution)" %(res // 1000), fontsize = fontsize)
 	if args.plot_collapsed_matrix:
-		ax.set_xlabel(args.output_prefix + "_collapsed_matrix", fontsize = fontsize)
+		ax.set_xlabel(args.output_prefix.split('/')[-1] + "_collapsed_matrix", fontsize = fontsize)
 	else:
-		ax.set_xlabel(args.output_prefix + "_expanded_matrix", fontsize = fontsize)
+		ax.set_xlabel(args.output_prefix.split('/')[-1] + "_expanded_matrix", fontsize = fontsize)
 
 	plt.tight_layout()
 	if args.plot_collapsed_matrix:
