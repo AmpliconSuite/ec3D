@@ -18,10 +18,7 @@ from pylab import rcParams
 rcParams['figure.figsize'] = [10, 10]
 rcParams['pdf.fonttype'] = 42
 
-"""
-Todo:
-(1) add --rotate-to-min - update coral
-"""
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = "Visualize significant interactions identified in ecDNA.")
 	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
