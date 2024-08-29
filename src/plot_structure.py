@@ -47,7 +47,8 @@ def add_arrow(fig, start_point, end_point, color = 'rgb(255,0,0)', size = 0.4):
 		))
 
 
-def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, clusters, output_prefix, save_png = False):
+def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene, gene_colors, si, clusters, 
+	output_prefix, noncyclic = False, save_png = False):
 	num_nodes = len(pos)
 	fig = make_subplots(specs=[[{'type': 'scatter3d'}]])
 
@@ -58,31 +59,66 @@ def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, c
 		z = pos[:, 2],
 		mode = 'markers + text',
 		marker = dict(size = 3, color = 'blue'),
-		text = [f'{i}' for i in range(num_nodes)],
+		text = [f'{i}' if i % 5 == 0 else '' for i in range(num_nodes)],
 		textfont = dict(size = 12),
 		name = 'Nodes',
 		visible = 'legendonly'
 	)
 	fig.add_trace(node_trace)
     
-	all_edges_x = []
-	all_edges_y = []
-	all_edges_z = []
+	concordant_edges_x, discordant_edges_x = [], []
+	concordant_edges_y, discordant_edges_y = [], []
+	concordant_edges_z, discordant_edges_z = [], []
 	for i in range(-1, num_nodes - 1):
-		all_edges_x += [pos[i][0], pos[i + 1][0], None]
-		all_edges_y += [pos[i][1], pos[i + 1][1], None]
-		all_edges_z += [pos[i][2], pos[i + 1][2], None]
-	base_edge_trace = go.Scatter3d(
-		x = all_edges_x,
-		y = all_edges_y,
-		z = all_edges_z,
+		if noncyclic and i == -1:
+			continue
+		if (i, i + 1) not in breakpoints:
+			concordant_edges_x += [pos[i][0], pos[i + 1][0], None]
+			concordant_edges_y += [pos[i][1], pos[i + 1][1], None]
+			concordant_edges_z += [pos[i][2], pos[i + 1][2], None]
+		else:
+			discordant_edges_x += [pos[i][0], pos[i + 1][0], None]
+			discordant_edges_y += [pos[i][1], pos[i + 1][1], None]
+			discordant_edges_z += [pos[i][2], pos[i + 1][2], None]
+	concordant_edge_trace = go.Scatter3d(
+		x = concordant_edges_x,
+		y = concordant_edges_y,
+		z = concordant_edges_z,
 		mode = 'lines',
 		line = dict(color = 'gray', width = 4.0),
 		name = 'Edges',
 		visible = True,  
 		showlegend = False
 	)
-	fig.add_trace(base_edge_trace)
+	fig.add_trace(concordant_edge_trace)
+	discordant_edge_trace = go.Scatter3d(
+		x = discordant_edges_x,
+		y = discordant_edges_y,
+		z = discordant_edges_z,
+		mode = 'lines',
+		line = dict(color = 'black', width = 4.0, dash = 'dashdot'),
+		name = 'Edges',
+		visible = True,  
+		showlegend = False
+	)
+	fig.add_trace(discordant_edge_trace)
+	breakpoint_x = []
+	breakpoint_y = []
+	breakpoint_z = []
+	for bp in breakpoints:
+		breakpoint_x.append((pos[bp[0]][0] + pos[bp[1]][0]) / 2)
+		breakpoint_y.append((pos[bp[0]][1] + pos[bp[1]][1]) / 2)
+		breakpoint_z.append((pos[bp[0]][2] + pos[bp[1]][2]) / 2)
+	breakpoint_trace = go.Scatter3d(
+		x = breakpoint_x,
+		y = breakpoint_y,
+		z = breakpoint_z,
+		mode = 'markers',
+		marker = dict(size = 2, symbol = 'x', color = 'red'),
+		name = 'breakpoints',
+		showlegend = True
+	)
+	fig.add_trace(breakpoint_trace)
     
 	edges_by_gene = dict()
 	for bin in bin2gene.keys():
@@ -131,7 +167,7 @@ def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, c
 				showlegend = False,
 				visible = visible
 			))
-			if strand == '+':
+			if (strand == '+' and bins[gene_range[1]][1] > bins[gene_range[1] - 1][1]) or (strand == '-' and bins[gene_range[1]][1] < bins[gene_range[1] - 1][1]):
 				add_arrow(fig, pos[gene_range[1] - 1], pos[gene_range[1]], color = edge_color)
 			else:
 				add_arrow(fig, pos[gene_range[0] + 1], pos[gene_range[0]], color = edge_color)
@@ -179,7 +215,7 @@ def plotstr_significant_interactions_and_genes(pos, bin2gene, gene_colors, si, c
 
 	fig.write_html(output_prefix + "_ec3d.html")
 	if save_png:
-		fig.write_image(output_prefix + "_ec3d.png", dpi = 150)
+		fig.write_image(output_prefix + "_ec3d.png")
 
 
 
@@ -193,6 +229,7 @@ if __name__ == '__main__':
 	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
 	parser.add_argument("--download_gene", help = "Download gene list from UCSC Genome Browser.", action = 'store_true')
 	parser.add_argument("--gene_fn", help = "Parse user provided gene list, in *.gff of *.gtf format.")
+	parser.add_argument("--noncyclic", help = "Noncyclic structure, will not connect the first and last nodes in 3D plot.", action = 'store_true')
 	parser.add_argument("--log_fn", help = "Name of log file.")
 	start_time = time.time()
 	args = parser.parse_args()
@@ -309,22 +346,62 @@ if __name__ == '__main__':
 	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Parsed oncogene names and strand from %s." %(oncogene_fn))
 	
+	bins = dict()
+	res = -1
 	bin2gene = dict()
 	unique_genes = set()
+	redundant_genes = set()
 	fp = open(args.annotation, 'r')
 	for line in fp:
-		s = line.strip().split()
+		s = line.strip().split('\t')
+		if res < 0:
+			res = int(s[2]) - int(s[1])
+		for i in range(3, len(s)):
+			bins[int(s[i])] = [s[0], int(s[1])]
 		for (gene, gene_intrvl) in oncogenes[s[0]].items():
 			if int(s[1]) <= gene_intrvl[1] and gene_intrvl[0] <= int(s[2]):
 				for i in range(3, len(s)):
-					bin2gene[int(s[i])] = {'gene': gene, 'strand': gene_intrvl[2]}
-					unique_genes.add(gene)	
+					if int(s[i]) in bin2gene:
+						if len(bin2gene[int(s[i])]['gene']) > len(gene):
+							redundant_genes.add(bin2gene[int(s[i])]['gene'])
+							bin2gene[int(s[i])]['gene'] = gene
+							bin2gene[int(s[i])]['strand'] = gene_intrvl[2]
+						elif len(bin2gene[int(s[i])]['gene']) == len(gene):
+							redundant_genes.add(bin2gene[int(s[i])]['gene'])
+							redundant_genes.add(gene)
+					else:
+						bin2gene[int(s[i])] = {'gene': gene, 'strand': gene_intrvl[2]}
+					unique_genes.add(gene)
 	fp.close()
+	unique_genes -= redundant_genes
+	del_list = []
+	for bin in bin2gene.keys():
+		if bin2gene[bin]['gene'] in redundant_genes:
+			del_list.append(bin)
+	for bin in del_list:
+		del bin2gene[bin]
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped the following bins to genes.")
 	for bin_num in bin2gene:
 		logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"Bin number: %d; Gene name: %s; Strand: %s" %(bin_num, bin2gene[bin_num]['gene'], bin2gene[bin_num]['strand']))
 
+	breakpoints = [(-1, 0)]
+	if args.noncyclic:
+		breakpoints = []
+	for i in range(len(bins) - 1):
+		if bins[i][0] != bins[i + 1][0]:
+			breakpoints.append((i, i + 1))
+		elif abs(bins[i + 1][1] - bins[i][1]) != res:
+			breakpoints.append((i, i + 1))
+		else:
+			if 1 < i < len(bins) - 2 and bins[i][0] == bins[i - 1][0] and bins[i + 1][0] == bins[i + 2][0] and \
+				abs(bins[i][1] - bins[i - 1][1]) == res and abs(bins[i + 2][1] - bins[i + 1][1]) == res and \
+				bins[i][1] - bins[i - 1][1] != bins[i + 2][1] - bins[i + 1][1]: #foldbacks
+				breakpoints.append((i, i + 1))
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Extracted %d breakpoint from annotation file." %(len(breakpoints)))
+	logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "breakpoints %s" %(breakpoints))
+				
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Identified breakpoints from annotation file.")
 	# Assign colors to genes
 	gene_colors = dict()
 	for gene in unique_genes:
@@ -342,7 +419,10 @@ if __name__ == '__main__':
 	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
-	plotstr_significant_interactions_and_genes(X, bin2gene, gene_colors, si, clusters, args.output_prefix)
+	if args.noncyclic:
+		plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, gene_colors, si, clusters, args.output_prefix, noncyclic = True)
+	else:
+		plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, gene_colors, si, clusters, args.output_prefix)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(args.output_prefix + "_ec3d.html"))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	    
