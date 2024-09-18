@@ -915,6 +915,7 @@ if __name__ == "__main__":
 				i_dup += 1
 	idx_map = np.array([idx_map[i] for i in range(len(idx_map))])
 	
+	repeat = 1
 	repeat_ = 1
 	PM_X_min = np.zeros(N * 3)
 	PM_obj_min = np.inf
