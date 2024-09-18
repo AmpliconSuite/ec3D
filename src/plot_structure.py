@@ -16,7 +16,7 @@ from plotly.subplots import make_subplots
 from util import *
 
 
-def add_arrow(fig, start_point, end_point, color = 'rgb(255,0,0)', size = 0.4):
+def add_arrow(fig, gene, start_point, end_point, visible, color = 'rgb(255,0,0)', size = 0.4):
 	# Calculate the direction of the arrow
 	direction = np.array(end_point) - np.array(start_point)
 	length = np.linalg.norm(direction)
@@ -43,11 +43,13 @@ def add_arrow(fig, start_point, end_point, color = 'rgb(255,0,0)', size = 0.4):
 					z = [arrow_side_end[2], end_point[2]],
 					mode = 'lines',
 					line = dict(color = color, width = 4),
-					showlegend = False
+					legendgroup = gene,
+					showlegend = False,
+					visible = visible
 		))
 
 
-def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene, gene_colors, si, clusters, 
+def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, 
 	output_prefix, noncyclic = False, save_png = False):
 	num_nodes = len(pos)
 	fig = make_subplots(specs=[[{'type': 'scatter3d'}]])
@@ -122,10 +124,11 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
     
 	edges_by_gene = dict()
 	for bin in bin2gene.keys():
-		try:
-			edges_by_gene[bin2gene[bin]['gene']]['bins'].append(bin)
-		except:
-			edges_by_gene[bin2gene[bin]['gene']] = {'bins': [bin], 'strand': bin2gene[bin]['strand']}
+		for gene in bin2gene[bin].keys():
+			try:
+				edges_by_gene[gene]['bins'].append(bin)
+			except:
+				edges_by_gene[gene] = {'bins': [bin], 'strand': bin2gene[bin][gene]}
 	for gene in edges_by_gene.keys():
 		edges_by_gene[gene]['bins'] = sorted(edges_by_gene[gene]['bins'])
 		ranges_ = []
@@ -145,7 +148,7 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 		edge_color = gene_colors.get(gene, 'gray')
 		strand = ranges['strand']
 		gene_name_with_strand = f"{gene} ({strand})"
-		visible = 'legendonly' if gene.startswith(('LOC', 'LINC', 'MIR')) else True
+		visible = 'legendonly' if (gene.startswith(('LOC', 'LINC', 'MIR')) or gene in redundant_genes) else True
 		edge_x = []
 		edge_y = []
 		edge_z = []
@@ -164,13 +167,14 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 				mode = 'text',
 				text = [gene],  # Use gene name without strand in the plot
 				textfont = dict(color = edge_color, size = 10),
+				legendgroup = gene,
 				showlegend = False,
 				visible = visible
 			))
 			if (strand == '+' and bins[gene_range[1]][1] > bins[gene_range[1] - 1][1]) or (strand == '-' and bins[gene_range[1]][1] < bins[gene_range[1] - 1][1]):
-				add_arrow(fig, pos[gene_range[1] - 1], pos[gene_range[1]], color = edge_color)
+				add_arrow(fig, gene, pos[gene_range[1] - 1], pos[gene_range[1]], visible, color = edge_color)
 			else:
-				add_arrow(fig, pos[gene_range[0] + 1], pos[gene_range[0]], color = edge_color)
+				add_arrow(fig, gene, pos[gene_range[0] + 1], pos[gene_range[0]], visible, color = edge_color)
 		if not edge_x:
 			continue
 		edge_trace = go.Scatter3d(
@@ -180,6 +184,7 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 				mode = 'lines',
 				line = dict(width = 8.0, color = edge_color),
 				name = gene_name_with_strand,  # Use gene name with strand in the legend
+				legendgroup = gene,
 				showlegend = True,
 				visible = visible
 		)
@@ -362,28 +367,22 @@ if __name__ == '__main__':
 			if int(s[1]) <= gene_intrvl[1] and gene_intrvl[0] <= int(s[2]):
 				for i in range(3, len(s)):
 					if int(s[i]) in bin2gene:
-						if len(bin2gene[int(s[i])]['gene']) > len(gene):
-							redundant_genes.add(bin2gene[int(s[i])]['gene'])
-							bin2gene[int(s[i])]['gene'] = gene
-							bin2gene[int(s[i])]['strand'] = gene_intrvl[2]
-						elif len(bin2gene[int(s[i])]['gene']) == len(gene):
-							redundant_genes.add(bin2gene[int(s[i])]['gene'])
-							redundant_genes.add(gene)
+						for gene_ in bin2gene[int(s[i])].keys():
+							if len(gene_) > len(gene):
+								redundant_genes.add(gene_)
+							elif len(gene_) == len(gene):
+								redundant_genes.add(gene_)
+								redundant_genes.add(gene)
+						bin2gene[int(s[i])][gene] = gene_intrvl[2]
 					else:
-						bin2gene[int(s[i])] = {'gene': gene, 'strand': gene_intrvl[2]}
+						bin2gene[int(s[i])] = {gene: gene_intrvl[2]}
 					unique_genes.add(gene)
 	fp.close()
-	unique_genes -= redundant_genes
-	del_list = []
-	for bin in bin2gene.keys():
-		if bin2gene[bin]['gene'] in redundant_genes:
-			del_list.append(bin)
-	for bin in del_list:
-		del bin2gene[bin]
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped the following bins to genes.")
 	for bin_num in bin2gene:
-		logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + \
-				"Bin number: %d; Gene name: %s; Strand: %s" %(bin_num, bin2gene[bin_num]['gene'], bin2gene[bin_num]['strand']))
+		for gene in bin2gene[bin_num].keys():
+			logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+					"Bin number: %d; Gene name: %s; Strand: %s" %(bin_num, gene, bin2gene[bin_num][gene]))
 
 	breakpoints = [(-1, 0)]
 	if args.noncyclic:
@@ -420,9 +419,9 @@ if __name__ == '__main__':
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
 	if args.noncyclic:
-		plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, gene_colors, si, clusters, args.output_prefix, noncyclic = True)
+		plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, args.output_prefix, noncyclic = True)
 	else:
-		plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, gene_colors, si, clusters, args.output_prefix)
+		plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, args.output_prefix)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(args.output_prefix + "_ec3d.html"))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	    

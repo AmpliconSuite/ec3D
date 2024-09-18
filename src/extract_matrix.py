@@ -118,7 +118,7 @@ if __name__ == '__main__':
 		np.save(args.output_prefix + "_raw_collapsed_matrix.npy", D_dedup)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the raw collapsed matrix to %s." %(args.output_prefix + "_raw_collapsed_matrix.npy"))
 	else:
-		np.save(args.output_prefix + "_raw_collapsed_matrix.txt", D_dedup)
+		np.savetxt(args.output_prefix + "_raw_collapsed_matrix.txt", D_dedup)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the raw collapsed matrix to %s." %(args.output_prefix + "_raw_collapsed_matrix.txt"))
 	N_dedup = normalization.ICE_normalization(D_dedup, counts_profile = np.array([len(row_labels[bin]) for bin in bins])[idx_dedup_argsort])
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Normalized the collapsed matrix.")
@@ -126,7 +126,7 @@ if __name__ == '__main__':
 		np.save(args.output_prefix + "_collapsed_matrix.npy", N_dedup)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the normalized collapsed matrix to %s." %(args.output_prefix + "_collapsed_matrix.npy"))
 	else:
-		np.save(args.output_prefix + "_collapsed_matrix.txt", N_dedup)
+		np.savetxt(args.output_prefix + "_collapsed_matrix.txt", N_dedup)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the normalized collapsed matrix to %s." %(args.output_prefix + "_collapsed_matrix.txt"))
 	fp = open(args.output_prefix + "_annotations.bed", 'w')
 	for bin in bins:

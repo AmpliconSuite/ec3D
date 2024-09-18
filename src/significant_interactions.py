@@ -520,11 +520,26 @@ if __name__ == "__main__":
 
 	"""
 	Cluster significant interactions
-	"""	
-	partition = community.best_partition(G)
+	"""
+	num_clusters = dict()
+	for i in range(100):
+		partition = community.best_partition(G)
+		nc = len(set(partition.values()))
+		try:
+			num_clusters[nc][0] += 1
+			if community.modularity(partition, G) > community.modularity(num_clusters[nc][1], G):
+				num_clusters[nc][1] = partition
+		except:
+			num_clusters[nc] = [1, partition]
+			
+	best_nc = list(num_clusters.keys())[0]
+	for nc in num_clusters.keys():
+		if num_clusters[nc][0] > num_clusters[best_nc][0]:
+			best_nc = nc
+	best_partition = num_clusters[best_nc][1]
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clustered bins involved in significant interactions.")
 
-	modularity_score = community.modularity(partition, G)
+	modularity_score = community.modularity(best_partition, G)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Modularity score of the partition: %f." %modularity_score)
     
 	cluster_fn = args.output_prefix + "_clustered_bins.tsv"
@@ -536,14 +551,14 @@ if __name__ == "__main__":
 			if (i, j) not in del_list:
 				remaining_nodes.add(i)
 				remaining_nodes.add(j)
-	for node in sorted(partition.keys()):
+	for node in sorted(best_partition.keys()):
 		if args.max_pooling:
 			if node in remaining_nodes:
-				fp.write("%d\t%d\n" %(node, partition[node]))
+				fp.write("%d\t%d\n" %(node, best_partition[node]))
 		else:
-			fp.write("%d\t%d\n" %(node, partition[node]))
+			fp.write("%d\t%d\n" %(node, best_partition[node]))
 	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "%d Clusters were detected with Louvain Clustering." %len(set(partition.values())))
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "%d Clusters were detected with Louvain Clustering." %len(set(best_partition.values())))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote Clustered bins to %s." %cluster_fn)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 

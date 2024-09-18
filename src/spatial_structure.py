@@ -718,7 +718,8 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 		f_alpha = results2[1]
 		"""
 		alpha, beta, f_alpha = estimate_alpha_beta(X_, C_nodup, S, C_dup, alpha, beta)
-
+		if beta > 100.0 or beta < 0.01:
+			return X_, results[1], alpha, beta
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tEstimated alpha = %f; beta = %f." %(alpha, beta))
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + 
 				"\tLog likelihood evaluated with alpha and beta at iteration %d = %f." %(it + 1, f_alpha))
@@ -919,7 +920,7 @@ if __name__ == "__main__":
 	PM_obj_min = np.inf
 	best_alpha = -3.0
 	best_beta = 1.0
-	for repeat in range(1, args.num_repeats + 1):
+	while repeat < args.num_repeats + 1:
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repeat %d:" %repeat)
 
 		"""
@@ -943,18 +944,22 @@ if __name__ == "__main__":
 		"""
 		Run Poisson model with initial X and matrix returned from MDS
 		"""
-		PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.structure, alpha = args.init_alpha)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
-		if PM_obj < PM_obj_min:
-			if np.isinf(PM_obj_min):
-				logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reset the current best repetition to %d." %(repeat))
-			else:
-				logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repetition %d showed a better objective than current best repetition %d." %(repeat, repeat_)) 
-			PM_obj_min = PM_obj
-			PM_X_min = PM_X
-			repeat_ = repeat
-			best_alpha = alpha
-			best_beta = beta
+		try:
+			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.structure, alpha = args.init_alpha, reg_weight = args.reg)
+			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
+			if PM_obj < PM_obj_min:
+				if np.isinf(PM_obj_min):
+					logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reset the current best repetition to %d." %(repeat))
+				else:
+					logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repetition %d showed a better objective than current best repetition %d." %(repeat, repeat_)) 
+				PM_obj_min = PM_obj
+				PM_X_min = PM_X
+				repeat_ = repeat
+				best_alpha = alpha
+				best_beta = beta
+			repeat += 1
+		except:
+			continue
 	
 	"""
 	Write output to file

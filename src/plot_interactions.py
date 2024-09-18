@@ -124,6 +124,7 @@ if __name__ == '__main__':
 		num_bins += intrvl_len
 		start_pos.append(num_bins)
 		logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "\tAmplified interval %s." %intrvl)
+	yticklbl.append(num_bins)
 
 	"""
 	Load Hi-C matrix
