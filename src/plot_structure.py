@@ -18,29 +18,29 @@ from util import *
 
 
 def bending_energy(coords):
-    energy = 0
-    for i in range(1, len(coords) - 1):
-        v1 = coords[i] - coords[i - 1]
-        v2 = coords[i + 1] - coords[i]
-        cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-        angle_change = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-        energy += angle_change ** 2
-    return energy
+        energy = 0
+        for i in range(1, len(coords) - 1):
+            v1 = coords[i] - coords[i - 1]
+            v2 = coords[i + 1] - coords[i]
+            cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+            angle_change = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+            energy += angle_change ** 2
+        return energy
 
 def objective_function(coords, alpha):
-    """
-    Objective function that includes only the bending energy.
-    """
-    coords = coords.reshape(-1, 3)
-    return alpha * bending_energy(coords)
+        """
+        Objective function that includes the bending energy.
+        """
+        coords = coords.reshape(-1, 3)
+        return alpha * bending_energy(coords)
 
 def refine_coordinates(initial_coords, alpha=0.1):
-    """
-    Refines the 3D coordinates to minimize the bending energy.
-    """
-    result = minimize(objective_function, initial_coords.ravel(), args=(alpha,), method='L-BFGS-B')
-    refined_coords = result.x.reshape(len(initial_coords), 3)
-    return refined_coords
+        """
+        Refines the 3D coordinates to minimize the bending energy.
+        """
+        result = minimize(objective_function, initial_coords.ravel(), args=(alpha,), method='L-BFGS-B')
+        refined_coords = result.x.reshape(len(initial_coords), 3)
+        return refined_coords
 
 def add_arrow(fig, gene, start_point, end_point, visible, color = 'rgb(255,0,0)', size = 0.4):
 	# Calculate the direction of the arrow
@@ -78,14 +78,14 @@ def add_arrow(fig, gene, start_point, end_point, visible, color = 'rgb(255,0,0)'
 def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, 
 	output_prefix, noncyclic = False, save_png = False):
 	num_nodes = len(pos)
-    vector_0_1 = pos[1] - pos[0]
-    vector_0_1_norm = vector_0_1 / np.linalg.norm(vector_0_1)
-    eye_x, eye_y, eye_z = vector_0_1_norm * 2
-    camera = dict(
-    eye=dict(x=eye_x, y=eye_y, z=eye_z), # distance from camera position
-    up=dict(x=0, y=0, z=1),         # defines the 'up' direction of the plot or Up vector
-    center=dict(x=0, y=0, z=0)      # the center point of the plot or Look-at point
-    )
+        vector_0_1 = pos[1] - pos[0]
+        vector_0_1_norm = vector_0_1 / np.linalg.norm(vector_0_1)
+        eye_x, eye_y, eye_z = vector_0_1_norm * 2
+        camera = dict(
+         eye=dict(x=eye_x, y=eye_y, z=eye_z), # distance from camera position
+         up=dict(x=0, y=0, z=1),         # defines the 'up' direction of the plot or Up vector
+         center=dict(x=0, y=0, z=0)      # the center point of the plot or Look-at point
+        )
 	fig = make_subplots(specs=[[{'type': 'scatter3d'}]])
 
 	# Create a trace for nodes
@@ -251,7 +251,7 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 			name = f'Cluster {cluster_id} Sig Interactions',
 			visible = 'legendonly'
 		))
-    fig.update_layout(scene_dragmode='orbit',scene_camera=camera)
+        fig.update_layout(scene_dragmode='orbit',scene_camera=camera)
 	fig.write_html(output_prefix + "_ec3d.html")
 	if save_png:
 		fig.write_image(output_prefix + "_ec3d.png")
