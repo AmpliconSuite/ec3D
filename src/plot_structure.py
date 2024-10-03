@@ -452,7 +452,7 @@ if __name__ == '__main__':
 	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
-    X1 = refine_coordinates(X)
+        X1 = refine_coordinates(X)
 	if args.noncyclic:
 		plotstr_significant_interactions_and_genes(X1, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, args.output_prefix, noncyclic = True)
 	else:
