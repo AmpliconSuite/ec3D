@@ -78,14 +78,12 @@ def add_arrow(fig, gene, start_point, end_point, visible, color = 'rgb(255,0,0)'
 def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, 
 	output_prefix, noncyclic = False, save_png = False):
 	num_nodes = len(pos)
-        vector_0_1 = pos[1] - pos[0]
-        vector_0_1_norm = vector_0_1 / np.linalg.norm(vector_0_1)
-        eye_x, eye_y, eye_z = vector_0_1_norm * 2
-        camera = dict(
-         eye=dict(x=eye_x, y=eye_y, z=eye_z), # distance from camera position
-         up=dict(x=0, y=0, z=1),         # defines the 'up' direction of the plot or Up vector
-         center=dict(x=0, y=0, z=0)      # the center point of the plot or Look-at point
-        )
+	
+	camera = dict(
+		eye=dict(x=2, y=0, z=0), # distance from camera position
+		up=dict(x=0, y=0, z=1),         # defines the 'up' direction of the plot or Up vector
+		center=dict(x=0, y=0, z=0)      # the center point of the plot or Look-at point
+	)
 	fig = make_subplots(specs=[[{'type': 'scatter3d'}]])
 
 	# Create a trace for nodes
@@ -251,12 +249,95 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 			name = f'Cluster {cluster_id} Sig Interactions',
 			visible = 'legendonly'
 		))
-        fig.update_layout(scene_dragmode='orbit',scene_camera=camera)
+		fig.update_layout(
+			scene_dragmode='orbit',
+			scene_camera=camera, 
+			updatemenus=[
+        		dict(
+					type="buttons",
+					showactive=True,
+					buttons=[
+						dict(
+							label="Switch on/off background",
+							method="relayout",
+							args=[
+								{
+									'scene.xaxis.showbackground': True,
+									'scene.yaxis.showbackground': True,
+									'scene.zaxis.showbackground': True,
+									'scene.xaxis.showticklabels': True,
+									'scene.yaxis.showticklabels': True,
+									'scene.zaxis.showticklabels': True,
+									'scene.xaxis.title': 'x',
+									'scene.yaxis.title': 'y',
+									'scene.zaxis.title': 'z',
+								}
+							],
+							args2=[
+								{
+									'scene.xaxis.showbackground': False,
+									'scene.yaxis.showbackground': False,
+									'scene.zaxis.showbackground': False,
+									'scene.xaxis.showticklabels': False,
+									'scene.yaxis.showticklabels': False,
+									'scene.zaxis.showticklabels': False,
+									'scene.xaxis.title': '',
+									'scene.yaxis.title': '',
+									'scene.zaxis.title': '',
+								}
+							]
+						)
+					]
+				)
+			]
+		)
 	fig.write_html(output_prefix + "_ec3d.html")
 	if save_png:
 		fig.write_image(output_prefix + "_ec3d.png")
 
+def default_orientation(X):
+    # Translation: Move bin0 to the origin
+    translated_X = X - X[0]
+    
+    # bin1 is now relative to the origin
+    bin1 = translated_X[1]
+    
+    # Calculate rotation to align bin1 with XY plane
+    angle_zx = np.arctan2(bin1[2], bin1[0]) 
+    rotation_matrix_zx = np.array([
+        [np.cos(angle_zx), 0, np.sin(angle_zx)],
+        [0, 1, 0],
+        [-np.sin(angle_zx), 0, np.cos(angle_zx)]
+    ])
+    
+    # Rotate structure in XZ plane
+    rotated_X_1 = translated_X @ rotation_matrix_zx.T
+    
+    # Now align bin1 with y-axis by rotating in the XY plane
+    bin1_rotated = rotated_X_1[1]
+    angle_xy = np.arctan2(bin1_rotated[0], bin1_rotated[1])
+    rotation_matrix_yz = np.array([
+        [np.cos(angle_xy), -np.sin(angle_xy), 0],
+        [np.sin(angle_xy), np.cos(angle_xy), 0],
+        [0, 0, 1]
+    ])
+    
+    # Rotate points in XY plane
+    rotated_X_2 = rotated_X_1 @ rotation_matrix_yz.T
+	
+	# Finally align bin2 with the YZ plane by rotating along y-axis
+    bin2_rotated = rotated_X_2[2]
+    angle_xz = np.arctan2(bin2_rotated[0], bin2_rotated[2]) 
+    rotation_matrix_xz = np.array([
+        [np.cos(angle_xz), 0, -np.sin(angle_xz)],
+        [0, 1, 0],
+        [np.sin(angle_xz), 0, np.cos(angle_xz)]
+    ])
 
+	# Final rotation
+    final_rotated_X = rotated_X_2 @ rotation_matrix_xz.T
+    
+    return final_rotated_X
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = "Visualize the 3D structure of ecDNA.")
@@ -452,7 +533,8 @@ if __name__ == '__main__':
 	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
-        X1 = refine_coordinates(X)
+	# X1 = refine_coordinates(X)
+	X1 = default_orientation(X)
 	if args.noncyclic:
 		plotstr_significant_interactions_and_genes(X1, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, args.output_prefix, noncyclic = True)
 	else:
