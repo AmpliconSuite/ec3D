@@ -22,9 +22,9 @@ if __name__ == "__main__":
 	value = {'round':[i+1 for i in range(len(objective_values))], \
 			'obj_value':[objective_values[i][2] for i in range(len(objective_values))], \
 			'alpha':[objective_values[i][0] for i in range(len(objective_values))], \
-			'beta':[objective_values[i][1] for i in range(len(objective_values))], }
-			# 'RMSD':[objective_values[i][3] for i in range(len(objective_values))], \
-			# 'PCC':[objective_values[i][4] for i in range(len(objective_values))]}
+			'beta':[objective_values[i][1] for i in range(len(objective_values))], \
+			'RMSD':[objective_values[i][3] for i in range(len(objective_values))], \
+			'PCC':[objective_values[i][4] for i in range(len(objective_values))]}
 	
 	# ref: https://github.com/BindiChen/machine-learning.git
 	# Create figure and axis #1
@@ -44,28 +44,28 @@ if __name__ == "__main__":
 	# set up the 2nd axis
 	ax2 = ax1.twinx() 
 	# plot bar chart on axis #2
-	p2, = ax2.plot(value['round'], value['alpha'], color='orange')
+	p2, = ax2.plot(value['round'], value['RMSD'], color='orange')
 	ax2.set_xscale('log')
 	ax2.grid(False) # turn off grid #2
-	ax2.set_ylabel('alpha')
-	ax2.legend(['alpha'], loc="upper center")
+	ax2.set_ylabel('RMSD')
+	ax2.legend(['RMSD'], loc="upper center")
 	ax2.yaxis.label.set_color(p2.get_color())
 	ax2.yaxis.label.set_fontsize(14)
 	ax2.tick_params(axis='y', colors=p2.get_color(), labelsize=14)
 
 	# # set up the 3rd axis
-	# ax3 = ax1.twinx()
-	# # Offset the right spine of ax3.  The ticks and label have already been
-	# # placed on the right by twinx above.
-	# ax3.spines.right.set_position(("axes", 1.15))
-	# # Plot line chart on axis #3
-	# p3, = ax3.plot(value['round'], value['PCC'], color='red')
-	# ax3.grid(False) # turn off grid #3
-	# ax3.set_ylabel('PCC')
-	# ax3.legend(['PCC'], loc="upper right")
-	# ax3.yaxis.label.set_color(p3.get_color())
-	# ax3.yaxis.label.set_fontsize(14)
-	# ax3.spines['right'].set_visible(False)
-	# ax3.tick_params(axis='y', colors=p3.get_color(), labelsize=14)
+	ax3 = ax1.twinx()
+	# Offset the right spine of ax3.  The ticks and label have already been
+	# placed on the right by twinx above.
+	ax3.spines.right.set_position(("axes", 1.15))
+	# Plot line chart on axis #3
+	p3, = ax3.plot(value['round'], value['PCC'], color='red')
+	ax3.grid(False) # turn off grid #3
+	ax3.set_ylabel('PCC')
+	ax3.legend(['PCC'], loc="upper right")
+	ax3.yaxis.label.set_color(p3.get_color())
+	ax3.yaxis.label.set_fontsize(14)
+	ax3.spines['right'].set_visible(False)
+	ax3.tick_params(axis='y', colors=p3.get_color(), labelsize=14)
 	
-	plt.savefig(output_fn)
+	plt.savefig(output_fn, bbox_inches='tight')
