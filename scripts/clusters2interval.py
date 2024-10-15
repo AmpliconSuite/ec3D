@@ -72,9 +72,10 @@ if __name__ == "__main__":
 
 	fp_w = open(sys.argv[4], 'w')
 	fp_w.write("cluster\tinterval\tstart\tend\tconnections\n")
+	j = 0
 	for c in sorted(clusters_merged.keys()):
 		for i in range(len(clusters_merged[c])):
-			fp_w.write("%d\tI%d\t%d\t%d" %(c, i, clusters_merged[c][i][0], clusters_merged[c][i][1]))
+			fp_w.write("%d\tI%d\t%d\t%d" %(c, j + i, clusters_merged[c][i][0], clusters_merged[c][i][1]))
 			ci_list = []
 			if c in connections:
 				for ci in range(len(connections[c])):
@@ -86,10 +87,11 @@ if __name__ == "__main__":
 			if len(ci_list) > 0:
 				fp_w.write("\t")
 				for ci_item in ci_list[:-1]:
-					fp_w.write("I%d," %ci_item)
-				fp_w.write("I%d\n" %ci_list[-1])
+					fp_w.write("I%d," %(ci_item + j))
+				fp_w.write("I%d\n" %(ci_list[-1] + j))
 			else:
 				fp_w.write("\n")
+		j += len(clusters_merged[c])
 
 	fp_w.close()
 	print("Wrote intervals of clusters to %s." %sys.argv[4])

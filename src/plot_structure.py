@@ -9,38 +9,36 @@ import time
 import logging
 import warnings
 import numpy as np
-from scipy.optimize import minimize
+#from scipy.optimize import minimize
+import hashlib
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 #from plotly.offline import plot
 
 from util import *
 
-
+"""
 def bending_energy(coords):
-        energy = 0
-        for i in range(1, len(coords) - 1):
-            v1 = coords[i] - coords[i - 1]
-            v2 = coords[i + 1] - coords[i]
-            cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-            angle_change = np.arccos(np.clip(cos_theta, -1.0, 1.0))
-            energy += angle_change ** 2
-        return energy
+	energy = 0
+	for i in range(1, len(coords) - 1):
+		v1 = coords[i] - coords[i - 1]
+		v2 = coords[i + 1] - coords[i]
+		cos_theta = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+		angle_change = np.arccos(np.clip(cos_theta, -1.0, 1.0))
+		energy += angle_change ** 2
+	return energy
 
 def objective_function(coords, alpha):
-        """
-        Objective function that includes the bending energy.
-        """
-        coords = coords.reshape(-1, 3)
-        return alpha * bending_energy(coords)
+	#Objective function that includes the bending energy.
+	coords = coords.reshape(-1, 3)
+	return alpha * bending_energy(coords)
 
 def refine_coordinates(initial_coords, alpha=0.1):
-        """
-        Refines the 3D coordinates to minimize the bending energy.
-        """
-        result = minimize(objective_function, initial_coords.ravel(), args=(alpha,), method='L-BFGS-B')
-        refined_coords = result.x.reshape(len(initial_coords), 3)
-        return refined_coords
+	#Refines the 3D coordinates to minimize the bending energy.
+	result = minimize(objective_function, initial_coords.ravel(), args=(alpha,), method='L-BFGS-B')
+	refined_coords = result.x.reshape(len(initial_coords), 3)
+	return refined_coords
+"""
 
 def add_arrow(fig, gene, start_point, end_point, visible, color = 'rgb(255,0,0)', size = 0.4):
 	# Calculate the direction of the arrow
@@ -76,13 +74,17 @@ def add_arrow(fig, gene, start_point, end_point, visible, color = 'rgb(255,0,0)'
 
 
 def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, 
-	output_prefix, noncyclic = False, save_png = False):
+	output_prefix, noncyclic = False, show_background = False, save_png = False):
 	num_nodes = len(pos)
+	center = np.mean(pos, axis = 0)
+	pos = pos - center
+	up = pos[1] - pos[0]
+	eye = np.cross(pos[1] - pos[0], pos[2] - pos[1])
+	eye = eye / np.linalg.norm(eye) * 2.0
 	
-	camera = dict(
-		eye=dict(x=2, y=0, z=0), # distance from camera position
-		up=dict(x=0, y=0, z=1),         # defines the 'up' direction of the plot or Up vector
-		center=dict(x=0, y=0, z=0)      # the center point of the plot or Look-at point
+	camera = dict(eye = dict(x = eye[0], y = eye[1], z = eye[2]), # camera position
+		up = dict(x = up[0], y = up[1], z = up[2]),
+		center = dict(x = 0.0, y = 0.0, z = 0.0)
 	)
 	fig = make_subplots(specs=[[{'type': 'scatter3d'}]])
 
@@ -148,7 +150,7 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 		y = breakpoint_y,
 		z = breakpoint_z,
 		mode = 'markers',
-		marker = dict(size = 2, symbol = 'cross', color = 'red'),
+		marker = dict(size = 2.5, symbol = 'x', color = 'red'),
 		name = 'breakpoints',
 		showlegend = True
 	)
@@ -249,95 +251,27 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 			name = f'Cluster {cluster_id} Sig Interactions',
 			visible = 'legendonly'
 		))
-		fig.update_layout(
-			scene_dragmode='orbit',
-			scene_camera=camera, 
-			updatemenus=[
-        		dict(
-					type="buttons",
-					showactive=True,
-					buttons=[
-						dict(
-							label="Switch on/off background",
-							method="relayout",
-							args=[
-								{
-									'scene.xaxis.showbackground': True,
-									'scene.yaxis.showbackground': True,
-									'scene.zaxis.showbackground': True,
-									'scene.xaxis.showticklabels': True,
-									'scene.yaxis.showticklabels': True,
-									'scene.zaxis.showticklabels': True,
-									'scene.xaxis.title': 'x',
-									'scene.yaxis.title': 'y',
-									'scene.zaxis.title': 'z',
-								}
-							],
-							args2=[
-								{
-									'scene.xaxis.showbackground': False,
-									'scene.yaxis.showbackground': False,
-									'scene.zaxis.showbackground': False,
-									'scene.xaxis.showticklabels': False,
-									'scene.yaxis.showticklabels': False,
-									'scene.zaxis.showticklabels': False,
-									'scene.xaxis.title': '',
-									'scene.yaxis.title': '',
-									'scene.zaxis.title': '',
-								}
-							]
-						)
-					]
+		if not show_background:
+			fig.update_layout(
+				margin = dict(l = 10, r = 10, t = 20, b = 10),
+				scene_dragmode = 'orbit',
+				scene_camera = camera, 
+				scene = dict(
+					xaxis = dict(visible = False),
+					yaxis = dict(visible = False),
+					zaxis =dict(visible = False)
 				)
-			]
-		)
+			)
+		else:
+			fig.update_layout(
+				margin = dict(l = 10, r = 10, t = 20, b = 10),
+				scene_dragmode = 'orbit',
+				scene_camera = camera
+			)
 	fig.write_html(output_prefix + "_ec3d.html")
 	if save_png:
-		fig.write_image(output_prefix + "_ec3d.png")
+		fig.write_image(output_prefix + "_ec3d.png", scale = 2.5)
 
-def default_orientation(X):
-    # Translation: Move bin0 to the origin
-    translated_X = X - X[0]
-    
-    # bin1 is now relative to the origin
-    bin1 = translated_X[1]
-    
-    # Calculate rotation to align bin1 with XY plane
-    angle_zx = np.arctan2(bin1[2], bin1[0]) 
-    rotation_matrix_zx = np.array([
-        [np.cos(angle_zx), 0, np.sin(angle_zx)],
-        [0, 1, 0],
-        [-np.sin(angle_zx), 0, np.cos(angle_zx)]
-    ])
-    
-    # Rotate structure in XZ plane
-    rotated_X_1 = translated_X @ rotation_matrix_zx.T
-    
-    # Now align bin1 with y-axis by rotating in the XY plane
-    bin1_rotated = rotated_X_1[1]
-    angle_xy = np.arctan2(bin1_rotated[0], bin1_rotated[1])
-    rotation_matrix_yz = np.array([
-        [np.cos(angle_xy), -np.sin(angle_xy), 0],
-        [np.sin(angle_xy), np.cos(angle_xy), 0],
-        [0, 0, 1]
-    ])
-    
-    # Rotate points in XY plane
-    rotated_X_2 = rotated_X_1 @ rotation_matrix_yz.T
-	
-	# Finally align bin2 with the YZ plane by rotating along y-axis
-    bin2_rotated = rotated_X_2[2]
-    angle_xz = np.arctan2(bin2_rotated[0], bin2_rotated[2]) 
-    rotation_matrix_xz = np.array([
-        [np.cos(angle_xz), 0, -np.sin(angle_xz)],
-        [0, 1, 0],
-        [np.sin(angle_xz), 0, np.cos(angle_xz)]
-    ])
-
-	# Final rotation
-    final_rotated_X = rotated_X_2 @ rotation_matrix_xz.T
-    
-    return final_rotated_X
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = "Visualize the 3D structure of ecDNA.")
@@ -350,6 +284,8 @@ if __name__ == '__main__':
 	parser.add_argument("--download_gene", help = "Download gene list from UCSC Genome Browser.", action = 'store_true')
 	parser.add_argument("--gene_fn", help = "Parse user provided gene list, in *.gff of *.gtf format.")
 	parser.add_argument("--noncyclic", help = "Noncyclic structure, will not connect the first and last nodes in 3D plot.", action = 'store_true')
+	parser.add_argument("--plot_axis", help = "Plot the three axes and grid.", action = 'store_true')
+	parser.add_argument("--save_png", help = "Save the structure plot additionally into a *.png file.", action = 'store_true')
 	parser.add_argument("--log_fn", help = "Name of log file.")
 	start_time = time.time()
 	args = parser.parse_args()
@@ -519,7 +455,8 @@ if __name__ == '__main__':
 	# Assign colors to genes
 	gene_colors = dict()
 	for gene in unique_genes:
-		gene_colors[gene] = f'rgb({np.random.randint(0,255)}, {np.random.randint(0,255)}, {np.random.randint(0,255)})'
+		color = str(hashlib.sha1(gene.encode('utf-8')).hexdigest())[-6:]
+		gene_colors[gene] = f'#{color}'
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Assigned one distinct color to each gene name.")
 	
 	# Read in and visualize clusters
@@ -533,12 +470,17 @@ if __name__ == '__main__':
 	fp.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
-	# X1 = refine_coordinates(X)
-	X1 = default_orientation(X)
+	noncyclic_ = False
+	plot_axis_ = False
+	save_png = False
 	if args.noncyclic:
-		plotstr_significant_interactions_and_genes(X1, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, args.output_prefix, noncyclic = True)
-	else:
-		plotstr_significant_interactions_and_genes(X1, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, args.output_prefix)
+		noncyclic_ = True
+	if args.plot_axis:
+		plot_axis_ = True
+	if args.save_png:
+		save_png = True
+	plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, args.output_prefix, 
+		noncyclic = noncyclic_, show_background = plot_axis_, save_png = save_png)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(args.output_prefix + "_ec3d.html"))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	    

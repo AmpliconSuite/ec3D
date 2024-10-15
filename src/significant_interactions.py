@@ -333,7 +333,7 @@ if __name__ == "__main__":
 							pval = 1.0
 						pvals.append(pval)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
-	
+
 		qvals = multipletests(pvals, alpha = 0.05, method = 'fdr_bh')[1]
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
 

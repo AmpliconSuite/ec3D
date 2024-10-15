@@ -146,95 +146,6 @@ def rotate(points, theta_x, theta_y, theta_z):
 def translate(points, translation_vector):
 	return points + translation_vector
 
-# randomly sample pairs of regions from the same structure
-def random_sampling1():
-	import csv
-	import pandas as pd
-	import random
-	duplication = {'D458':[{'s1':9, 'e1':12, 's2':370, 'e2':373, 'size':4, 'RMSD':0.1600, 'PCC':0.9973}, 
-						{'s1':115, 'e1':156, 's2':415, 'e2':374, 'size':42, 'RMSD':0.2020, 'PCC':0.9581}, 
-						{'s1':236, 'e1':239, 's2':416, 'e2':419, 'size':4, 'RMSD':0.1560, 'PCC':0.9923}, 
-						{'s1':240, 'e1':255, 's2':369, 'e2':354, 'size':16, 'RMSD':0.1251, 'PCC':0.9973}, 
-						{'s1':341, 'e1':351, 's2':497, 'e2':507, 'size':11, 'RMSD':0.0756, 'PCC':0.9967}], 
-					'H2170':[{'s1':18, 'e1':96, 's2':364, 'e2':442, 'size':79, 'RMSD':0.2759, 'PCC':0.9319}, 
-			  				{'s1':260, 'e1':281, 's2':342, 'e2':363, 'size':22, 'RMSD':0.3363, 'PCC':0.8175}, 
-							{'s1':97, 'e1':259, 's2':443, 'e2':605, 'size':163, 'RMSD':0.3020, 'PCC':0.7758}]}
-
-	sample = 'D458'
-	structure = np.loadtxt(f'/home/chaohuili/ecDNA_structure/results/{sample}/{sample}_5k_coordinates.txt')
-	# file_writer = csv.writer(open(f'{sample}_similarity.tsv', 'w'), delimiter='\t')
-	# file_writer.writerow(['Sample', 'Region1', 'Region2', 'Size(#bins)', 'RMSD', 'PCC'])
-	df = pd.read_table(f'/home/chaohuili/ecDNA_structure/results/similarity/{sample}_similarity.tsv')
-	for i in range(len(duplication[sample])):
-		print(f'cell line: {sample}, duplication: {i+1}')
-		dup = duplication[sample][i]
-		structure1 = structure[dup['s1']:dup['e1']+1]
-		inverse = False
-		if dup['s2'] > dup['e2']:
-			inverse = True
-			dup['s2'], dup['e2'] = dup['e2'], dup['s2']		
-		structure2 = structure[dup['s2']:dup['e2']+1]
-		if inverse:
-			structure2 = structure2[::-1]
-		rmsd_test, _, _, pcc_test = getTransformation(structure1, structure2)
-		print(f'rmsd_test: {rmsd_test}, pcc_test: {pcc_test}')
-
-		s1, e1, size = dup['s1'], dup['e1'], dup['size']
-		id = f'[{s1}, {e1}]'
-		sample_size, cnt1, cnt2 = 5000, df[(df['Region1'] == id) & (df['RMSD'] < rmsd_test) & (df['PCC'] > pcc_test)].shape[0], 0
-
-		for _ in range(0):
-			# Sample random pairs
-			# a, b = random.sample(list(range(size, structure.shape[0]-size)), 2)
-			# if a > b:
-			# 	a, b = b, a
-			# structure1, structure2 = structure[a-size:a], structure[b:b+size]
-
-			# Sample random structures
-			pos = s1
-			while (s1<=pos and pos<=e1) or (dup['s2']<=pos and pos<=dup['e2']):
-				pos = random.choice(list(range(structure.shape[0]-size)))
-			structure2 = structure[pos:pos+size]
-			if inverse:
-				structure2 = structure2[::-1]
-			rmsd, _, _, pcc = getTransformation(structure1, structure2) # structure1 is transformed
-			# file_writer.writerow([sample, f'[{s1}, {e1}]', f'[{pos}, {pos+size-1}]', size, rmsd, pcc])
-			if rmsd < rmsd_test and pcc > pcc_test:
-				cnt1 += 1
-			# if pcc > pcc_test:
-			# 	cnt2 += 1
-			# print(f'RMSD: {rmsd}, PCC: {pcc}')
-		p1, p2 = cnt1/sample_size, cnt2/sample_size
-		print(f"p1: {p1}, p2: {p2}")
-
-# randomly sample pairs of regions from two structures
-def radom_sampling2():
-	import random
-	import csv
-	structure1 = np.loadtxt(f'/home/chaohuili/ecDNA_structure/results/IMR575/IMR575_5k_coordinates.txt')
-	structure2 = np.loadtxt(f'/home/chaohuili/ecDNA_structure/results/IMR575/IMR575_5k_coordinates.txt')
-	file_writer = csv.writer(open(f'IMR575_duplication_similarity.tsv', 'w'), delimiter='\t')
-	file_writer.writerow(['Sample', 'Region1', 'Region2', 'Size(#bins)', 'RMSD', 'PCC'])
-
-	rmsd_test, _, _, pcc_test = getTransformation(structure1[6:100], structure2[100:194])
-	print(f'rmsd_test: {rmsd_test}, pcc_test: {pcc_test}')
-
-	s1, e1, s2, e2, size = 6, 99, 100, 193, 94
-	sample_size, cnt1, cnt2 = 5000, 0, 0
-	for _ in range(sample_size):
-		# Sample random structures
-		pos = s2
-		while (s2<=pos and pos<=e2):
-			pos = random.choice(list(range(structure2.shape[0]-size)))
-		rmsd, _, _, pcc = getTransformation(structure1[6:100], structure2[pos:pos+size]) # structure1 is transformed
-		file_writer.writerow(['IMR575', f'[{s1}, {e1}]', f'[{pos}, {pos+size-1}]', size, rmsd, pcc])
-		if rmsd < rmsd_test and pcc > pcc_test:
-			cnt1 += 1
-		# if pcc > pcc_test:
-		# 	cnt2 += 1
-		# print(f'RMSD: {rmsd}, PCC: {pcc}')
-	p1, p2 = cnt1/sample_size, cnt2/sample_size
-	print(f"p1: {p1}, p2: {p2}")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description = "Compute RMSD and PCC.")
@@ -243,9 +154,6 @@ if __name__ == "__main__":
 	parser.add_argument("--save", help = "Input the second structure.", type=bool, default=False, required = False)
 	args = parser.parse_args()
 
-	# random_sampling1()
-	radom_sampling2()
-	exit(0)
 	structure1, structure2 = np.loadtxt(args.structure1), np.loadtxt(args.structure2)
 
 	rmsd, X1, X2, pcc = getTransformation(structure1, structure2) # structure1 is transformed
