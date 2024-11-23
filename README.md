@@ -22,14 +22,17 @@ python3 ec3D.py --cool <path of *.cool file>
 ```
 
 ### Step 1 - Preprocessing Hi-C
-Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```*.bed``` format), output the Hi-C matrix corresponding to ecDNA to work on in the following steps, and the annotation of each bin at a given resolution. Example command:
-```
-python3 extract_matrix.py --cool <path of *.cool file>
---ecdna_cycle <path of *.bed file>
---resolution 10000
---output_prefix <prefix of output, including path>
-```
-- Example cycles file (from D458):
+Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```*.bed``` format), output the Hi-C matrix corresponding to ecDNA to work on in the following steps, and the annotation of each bin at a given resolution. 
+#### Usage
+```python3 extract_matrix.py [Required arguments] [Optional arguments]```
+#### Required arguments
+- ```--cool <FILE>```, Hi-C matrix, in ```*.cool``` format. Usually [cooler](https://cooler.readthedocs.io/) will organize multiple cool files with different resolutions in ```*.mcool``` format, and you will need to add a suffix ```::/resolutions/<RESOLUTION>``` to specify the resolution you want to work with.
+- ```--ecdna_cycle <FILE>```, ecDNA intervals, in extended ```*.bed``` (chr, start, end, orientation) format.
+- ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file.
+- ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
+#### Optional arguments
+- ```--save_npy```, Save output matrices in ```*.npy``` format. Note that by default, the ecDNA matrices are saved in ```*.txt``` format for easier readability.
+#### Example ecDNA cycle file (from D458):
 ```
 #chr	start	end	orientation	cycle_id	iscyclic	weight
 chr8	128458992	129085009	+	1	True	1.000000
@@ -44,8 +47,9 @@ chr14	56797826	56986857	-	1	True	1.000000
 chr8	127957689	128012988	-	1	True	1.000000
 chr8	128443842	128452940	+	1	True	1.000000
 ```
-- The provided ecDNA structure in a cycle bed file may include duplicated segments in its records, e.g., ```chr8 127293093 127948583``` and ```chr8 127872074 128441212```.  We refer to _collapsed_ matrix as the Hi-C matrix where each duplicated segment occurs only one time; and _expanded_ matrix as the Hi-C matrix representing the structure of ecDNA where all duplicated segments occur as many times as they are duplicated. 
-- Outputs from ```extract_matrix.py``` include (i) the ICE normalized collapsed matrix *_ice_normalized.npy, (ii) the raw collapsed matrix *_original_matrix.npy, and (iii) an annotation file ```*_annotations.bed``` which maps each bin to the indices in the expanded matrix. Example annotation file from D458:
+- The provided ecDNA structure in a cycle bed file may include duplicated segments in its records, e.g., ```chr8 127293093 127948583``` and ```chr8 127872074 128441212```.  We refer to _collapsed_ matrix as the Hi-C matrix where each duplicated segment occurs only one time; and _expanded_ matrix as the Hi-C matrix representing the structure of ecDNA where all duplicated segments occur as many times as they are duplicated. ec3D will automatically process cycle files containing duplicated segments and reconstruct the underlying ecDNA structures, regardless of whether the input from ```--ecdna_cycle``` contains duplication or not.
+#### Expected outout
+Outputs from ```extract_matrix.py``` include (i) the ICE normalized collapsed matrix ```*_ice_normalized.npy```, (ii) the raw collapsed matrix ```*_original_matrix.npy```, and (iii) an annotation file ```*_annotations.bed``` which maps each bin to the indices in the expanded matrix. Example annotation file from D458 ecDNA:
 ```
 chr8	128460000	128470000	0
 chr8	128470000	128480000	1
@@ -60,7 +64,7 @@ chr8	128550000	128560000	9
 ...
 ```
 ### Step 2 - Reconstructing the 3D structure of ecDNA
-Given the **(ICE) normalized** collapsed Hi-C matrix corresponding to ecDNA and the annotations, compute the 3D coordinates for each bin in the expanded matrix, and the expanded matrix itself. Example command: 
+Given the **(ICE) normalized** collapsed Hi-C matrix corresponding to ecDNA and the annotations, compute the 3D coordinates for each bin in the expanded matrix, and the expanded matrix itself. Example command:
 ```
 python3 spatial_structure.py --matrix <*.npy output from the last step>
 --annotation <*.bed output from the last step>
