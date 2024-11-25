@@ -31,7 +31,7 @@ Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```
 - ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file.
 - ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
 #### Optional arguments
-- ```--save_npy```, Save output matrices in ```*.npy``` format. Note that by default, the ecDNA matrices are saved in ```*.txt``` format for easier readability.
+- ```--save_npy```, Save output matrices in ```*.npy``` format. Note that by default, the ecDNA matrices are saved in ```*.txt``` format for easier readability, even though they are less compact.
 #### Example ecDNA cycle file (from D458):
 ```
 #chr	start	end	orientation	cycle_id	iscyclic	weight
@@ -49,7 +49,10 @@ chr8	128443842	128452940	+	1	True	1.000000
 ```
 - The provided ecDNA structure in a cycle bed file may include duplicated segments in its records, e.g., ```chr8 127293093 127948583``` and ```chr8 127872074 128441212```.  We refer to _collapsed_ matrix as the Hi-C matrix where each duplicated segment occurs only one time; and _expanded_ matrix as the Hi-C matrix representing the structure of ecDNA where all duplicated segments occur as many times as they are duplicated. ec3D will automatically process cycle files containing duplicated segments and reconstruct the underlying ecDNA structures, regardless of whether the input from ```--ecdna_cycle``` contains duplication or not.
 #### Expected outout
-Outputs from ```extract_matrix.py``` include (i) the ICE normalized collapsed matrix ```*_ice_normalized.npy```, (ii) the raw collapsed matrix ```*_original_matrix.npy```, and (iii) an annotation file ```*_annotations.bed``` which maps each bin to the indices in the expanded matrix. Example annotation file from D458 ecDNA:
+Outputs from ```extract_matrix.py``` include 
+- (i) the ICE normalized collapsed matrix ```*_ice_normalized.npy```;
+- (ii) the raw collapsed matrix ```*_original_matrix.npy```; and
+- (iii) an annotation file ```*_annotations.bed``` which maps each bin to the indices in the expanded matrix. Example annotation file from D458 ecDNA:
 ```
 chr8	128460000	128470000	0
 chr8	128470000	128480000	1
@@ -64,21 +67,31 @@ chr8	128550000	128560000	9
 ...
 ```
 ### Step 2 - Reconstructing the 3D structure of ecDNA
-Given the **(ICE) normalized** collapsed Hi-C matrix corresponding to ecDNA and the annotations, compute the 3D coordinates for each bin in the expanded matrix, and the expanded matrix itself. Example command:
-```
-python3 spatial_structure.py --matrix <*.npy output from the last step>
---annotation <*.bed output from the last step>
---output_prefix <prefix of output, including path>
---log_fn <logs for optimization>
-```
-- ```spatial_structure.py``` will output a single ```*_coordinates.npy``` file storing the 3D coordinates for each bin in the expanded matrix sorted by the indices of bins specified in the annotation file.
-- To compute the expanded Hi-C matrix, run ```expand_hic.py``` which takes the **raw** collapsed Hi-C matrix, the annotation file and the ```*_coordinates.npy``` above as input, expands the matrix, runs ICE normalization, and saves the normalized expanded matrix to an ```*.npy``` file. 
-```
-python3 expand_hic.py --raw_matrix <*.npy output from the last step>
---annotation <*.bed output from the last step>
---structure <*_coordinates.npy>
---output_prefix <prefix of output, including path>
-```
+As a main functionality of ec3D, given the **(ICE) normalized** collapsed Hi-C matrix corresponding to ecDNA and annotations, compute the 3D coordinates for each fixed resolution bin on the ecDNA, and an expanded matrix in the existence of a duplicated segment. 
+#### Usage
+```python3 spatial_structure.py [Required arguments] [Optional arguments]```
+#### Required arguments
+- ```--matrix <FILE>```, ICE normalized, collapsed matrix in ```*.txt``` or ```*.npy``` format (```*_ice_normalized.txt/npy```) from ```extract_matrix.py```.
+- ```--annotation <FILE>```, Annotation of bins in the input matrix (```*_annotations.bed```) from ```extract_matrix.py```.
+- ```--output_prefix <STRING>```, Prefix of the output structure and expanded matrix file. Again if these file is desired to be written to a different directory, then a path/directory should also be included.
+#### Optional arguments
+ec3D optimizes the Poisson likelihood with the l-BFGS algorithm implemented in [SciPy](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.fmin_l_bfgs_b.html). In order to tune the optimization process, it allows to reset the following parameters: 
+- ```--reg <FLOAT>```, Weight parameter of the regularization term, which controls the **variance** of Euclidean distance between every pair of consecutive bins; default value is 0.05.
+- ```--init_alpha <FLOAT>```, An initial value of alpha, the power law decay parameter of Hi-C with respect to Euclidean distance, for iterative optimization of the Poisson likelihood evaluated with X (the 3D coordinates) and alpha; default value is -3.0.
+  - Note that ec3D works with another parameter beta, which controls the scale of Hi-C interactions relative to power law decay. This parameter can be estimated automatically from given alpha, so there is no need to reset it.
+- ```--num_repeats <INT>``` - To overcome potential local minimums, ec3D starts with random initial structures and performs optimization multiple times. ```--num_repeats``` controls the number of times the optimization is repeated (with random initial structures). Default value is 5.
+- ```--max_rounds <INT>``` - ec3D performs iterative optimization of the Poisson likelihood evaluated with the 3D coordinates and alpha, ```--max_rounds``` controls how many times this iterative process is repeated. Default value is 1000.
+- ```--max_iter_likelihood <INT>```, Maximum number of L-BFGS iterations for estimating the 3D coordinates, default value is 10000.
+- ```--max_iter_exponent <INT>```, Maximum number of L-BFGS iterations for estimating alpha, default is 5000.
+
+And finally, to work with ```*.npy``` format, you can again specify
+- ```--save_npy``` to save the output numpy matrices in ```*.npy``` format.
+#### Expected outout
+After ```spatial_structure.py``` is completed, the following files will be written to the path specified in ```--output_prefix```:
+- (i) Most importantly, ```*_coordinates.txt/npy```, the optimal ecDNA structure reconstruction as 3D coordinates for each bin in the expanded matrix, sorted by the indices of bins specified in the input annotation file;
+- (ii) The optimal values of alpha and beta in ```*_hyperparameters.txt```; and
+- (iii) The expanded Hi-C matrix, ```*_expanded_matrix.txt/npy```, which is computed from the **raw** collapsed Hi-C matrix, annotation file and structure file, and finally ICE normalized, to be used in the following steps, e.g., identifying significant interactions. 
+
 ### Step 3 - Identifying significant interactions 
 Given the (ICE) normalized expanded matrix corresponding to ecDNA, identify the significant interactions from the matrix **under the assumption that the underlying genome is circular**. Example command: 
 ```
