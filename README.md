@@ -14,12 +14,15 @@
 
 ## Running
 ### Batch mode
+The easiest way to run ec3D is running in **batch** mode, performing all following steps (i.e., [Preprocessing Hi-C](###step-1---preprocessing-hi-c), [Reconstructing the 3D structure of ecDNA](### Step 2 - Reconstructing the 3D structure of ecDNA)), with default parameters default, if custom setting need to run through the following steps
 ```
-python3 ec3D.py --cool <path of *.cool file>
---ecdna_cycle <path of *.bed file>
---resolution 10000
---output_prefix <prefix of output, including path>
+python3 ec3D.py --cool <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRING>
 ```
+The only required input 
+- ```--cool <FILE>```, Hi-C matrix, in ```*.cool``` format. Usually [cooler](https://cooler.readthedocs.io/) will organize multiple cool files with different resolutions in ```*.mcool``` format, and you will need to add a suffix ```::/resolutions/<RESOLUTION>``` to specify the resolution you want to work with.
+- ```--ecdna_cycle <FILE>```, ecDNA intervals, in extended ```*.bed``` (chr, start, end, orientation) format.
+- ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file.
+- ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
 
 ### Step 1 - Preprocessing Hi-C
 Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```*.bed``` format), output the Hi-C matrix corresponding to ecDNA to work on in the following steps, and the annotation of each bin at a given resolution. 
@@ -32,10 +35,9 @@ Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```
 - ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
 #### Optional arguments
 - ```--save_npy```, Save output matrices in ```*.npy``` format. Note that by default, the ecDNA matrices are saved in ```*.txt``` format for easier readability, even though they are less compact.
-#### Example ecDNA cycle file (from D458):
+#### Example ecDNA cycle file (from [D458](https://www.ncbi.nlm.nih.gov/sra/SRX21566415)):
 ```
 #chr	start	end	orientation	cycle_id	iscyclic	weight
-chr8	128458992	129085009	+	1	True	1.000000
 chr8	127293093	127948583	+	1	True	1.000000
 chr8	127872074	128441212	-	1	True	1.000000
 chr8	128505994	128527415	+	1	True	1.000000
@@ -46,13 +48,14 @@ chr14	56593089	56794203	+	1	True	1.000000
 chr14	56797826	56986857	-	1	True	1.000000
 chr8	127957689	128012988	-	1	True	1.000000
 chr8	128443842	128452940	+	1	True	1.000000
+chr8	128458992	129085009	+	1	True	1.000000
 ```
 - The provided ecDNA structure in a cycle bed file may include duplicated segments in its records, e.g., ```chr8 127293093 127948583``` and ```chr8 127872074 128441212```.  We refer to _collapsed_ matrix as the Hi-C matrix where each duplicated segment occurs only one time; and _expanded_ matrix as the Hi-C matrix representing the structure of ecDNA where all duplicated segments occur as many times as they are duplicated. ec3D will automatically process cycle files containing duplicated segments and reconstruct the underlying ecDNA structures, regardless of whether the input from ```--ecdna_cycle``` contains duplication or not.
 #### Expected outout
 Outputs from ```extract_matrix.py``` include 
 - (i) the ICE normalized collapsed matrix ```*_ice_normalized.npy```;
 - (ii) the raw collapsed matrix ```*_original_matrix.npy```; and
-- (iii) an annotation file ```*_annotations.bed``` which maps each bin to the indices in the expanded matrix. Example annotation file from D458 ecDNA:
+- (iii) an annotation file ```*_annotations.bed``` which maps each bin to the indices in the expanded matrix. Example annotation file from D458 ecDNA, with 10K resolution:
 ```
 chr8	128460000	128470000	0
 chr8	128470000	128480000	1
@@ -93,7 +96,26 @@ After ```spatial_structure.py``` is completed, the following files will be writt
 - (iii) The expanded Hi-C matrix, ```*_expanded_matrix.txt/npy```, which is computed from the **raw** collapsed Hi-C matrix, annotation file and structure file, and finally ICE normalized, to be used in the following steps, e.g., identifying significant interactions. 
 
 ### Step 3 - Identifying significant interactions 
-Given the (ICE) normalized expanded matrix corresponding to ecDNA, identify the significant interactions from the matrix **under the assumption that the underlying genome is circular**. Example command: 
+The capability of ec3D to expand the ecDNA Hi-C matrix additionally enables its identification of significant interactions within an expanded matrix. Given the (ICE) normalized, expanded matrix corresponding to ecDNA, ```significant_interactions.py``` provides an option to identify significant interactions from a  **circular genome**, and separate significant interactions from different causes (SV breakpoints, conformational changes, and candidate _trans_-interactions between different ecDNA molecules).
+#### Usage
+```python3 significant_interactions.py [Required arguments] [Optional arguments]```
+#### Required arguments
+- ```--matrix <FILE>```, ICE normalized, expanded matrix in ```*.txt``` or ```*.npy``` format (```*_expanded_matrix.txt/npy```) from ```spatial_structure.py```.
+- ```--output_prefix <STRING>```, Prefix of the output significant interactions and clusterings.
+#### Optional arguments
+- ```--model <distance_ratio|global_poisson|global_nb>``` - The statistical model and quantities used to compute significant interactions, default setting is ```global_nb```.
+  - If ```global_poisson``` or ```global_nb``` is specified, ec3D will compute significant interactions based on Hi-C interactions, and at each genomic distance specified in ```--genomic_distance_model```. The only difference is the statistical model of significant interactions - ```global_poisson``` fits a Poisson distribution of interactions at each genomic distance; while ```global_nb```  fits a Negative Binomial distribution, which can better capture overdispersion in Hi-C interactions.
+  - If ```distance_ratio``` is specified, significant interactions will be computed based on the **ratio** between Euclidean distance and genomic distance. This model is designed to capture interactions within a single 3D structure, or minimize the impact of significant interactions due to alternative 3D structures/conformations and trans-interactions between different ecDNA copies.
+- ```--genomic_distance_model <circular|linear|reference>```, Model of genomic distance between two bins, default is ```circular```.
+  - ```circular``` - Genomic distance between bin ```i``` and bin ```j``` equals to ```min(|i - j|, N - |i - j|)``` where ```N``` is the size of the expanded matrix (i.e., number of fixed resolution bins in ecDNA). In other words, interactions in the ```i```-th diagonal and ```N - i```-th diagonal are considered to have the same genomic distance. When applied to ecDNA Hi-C, this setting will minimize the impact of significant interactions due to circularization of ecDNA, and prioritize interactions due to  conformational changes.
+  - ```linear``` - Genomic distance between bin ```i``` and bin ```j``` equals to ```|i - j|```. This setting can be applied to normal chromosome Hi-C.
+  - ```reference``` - Genomic distance between bin ```i``` and bin ```j``` equals to their distance on the reference genome, bounded by the ecDNA size, i.e., if ```i``` and ```j``` are from different chromosomes or their distance is larger than the size of the input ecDNA, their genomic distance is reset to the ecDNA size. When applied to ecDNA Hi-C, this genomic distance model will capture significant interactions due to circularization of ecDNA, or SV breakpoint joining remote chromosomal segments, potentially suggesting functional impacts/alterations (for example, enhancer hijacking).
+- ```--structure <FILE>```, The reconstructed 3D structure of ecDNA in *.txt or *.npy format (```*_coordinates.txt/npy```), only required when ```distance_ratio``` is specified in ```--model```, otherwise ignored.
+- ```--annotation <FILE>```, Annotation of bins in the input matrix (```*_annotations.bed```), only required when ```distance_ratio``` is specified in ```--model```, otherwise ignored.
+- ```--pval_cutoff <FLOAT>```, (Adjusted) P-value cutoff for significant interactions, default value is 0.05.
+- ```--max_pooling```, Only keep significant interactions larger than their top, bottom, left and right neighbors.
+- ```--exclude <INT1 INT2, ...>```, Exclude significant interactions at given indices in the output and subsequent clustering process.
+#### Expected outout
 ```
 python3 significant_interactions.py --matrix <*.npy output from the last step>
 --output_prefix <prefix of output, including path>
