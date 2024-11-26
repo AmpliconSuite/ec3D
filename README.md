@@ -14,14 +14,14 @@
 
 ## Running
 ### Batch mode
-The easiest way to run ec3D is running in **batch** mode, performing all following steps (i.e., [Preprocessing Hi-C](###step-1---preprocessing-hi-c), [Reconstructing the 3D structure of ecDNA](### Step 2 - Reconstructing the 3D structure of ecDNA)), with default parameters default, if custom setting need to run through the following steps
+The easiest way to run ec3D is running in **batch** mode, performing all following steps (i.e., [Preprocessing Hi-C](#step-1---preprocessing-hi-c), [Reconstructing the 3D structure of ecDNA](#step-2---reconstructing-the-3d-structure-of-ecdna), [Identifying significant interactions](#step-3---identifying-significant-interactions), and [Visualization](#step-4---visualization)), with default parameters. For custom parameter adjustments, it is best to run through individual steps.
 ```
 python3 ec3D.py --cool <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRING>
 ```
-The only required input 
+The only required input for ec3D is a Hi-C matrix, in ```*.cool``` format, and an ecDNA cycle, in extended ```*.bed``` format. Of course, you will need to specify the resolution to work with, and a prefix of the desired output. After a successful reconstruction, ```ec3D.py``` will write all default output files in the following steps into the path specified in ```--output_prefix```.
 - ```--cool <FILE>```, Hi-C matrix, in ```*.cool``` format. Usually [cooler](https://cooler.readthedocs.io/) will organize multiple cool files with different resolutions in ```*.mcool``` format, and you will need to add a suffix ```::/resolutions/<RESOLUTION>``` to specify the resolution you want to work with.
-- ```--ecdna_cycle <FILE>```, ecDNA intervals, in extended ```*.bed``` (chr, start, end, orientation) format.
-- ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file.
+- ```--ecdna_cycle <FILE>```, ecDNA intervals, in extended ```*.bed``` (chr, start, end, orientation) format, see below for an example.
+- ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file. Each ```ec3D``` run must only work with a single fixed resolution.
 - ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
 
 ### Step 1 - Preprocessing Hi-C
@@ -29,10 +29,10 @@ Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```
 #### Usage
 ```python3 extract_matrix.py [Required arguments] [Optional arguments]```
 #### Required arguments
-- ```--cool <FILE>```, Hi-C matrix, in ```*.cool``` format. Usually [cooler](https://cooler.readthedocs.io/) will organize multiple cool files with different resolutions in ```*.mcool``` format, and you will need to add a suffix ```::/resolutions/<RESOLUTION>``` to specify the resolution you want to work with.
-- ```--ecdna_cycle <FILE>```, ecDNA intervals, in extended ```*.bed``` (chr, start, end, orientation) format.
-- ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file.
-- ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
+- ```--cool <FILE>```, Hi-C matrix, in ```*.cool``` format.
+- ```--ecdna_cycle <FILE>```, ecDNA intervals, in extended ```*.bed``` format.
+- ```--resolution <INT>```, Resolution, which should match the resolution of the input ```*.cool``` file.
+- ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```.
 #### Optional arguments
 - ```--save_npy```, Save output matrices in ```*.npy``` format. Note that by default, the ecDNA matrices are saved in ```*.txt``` format for easier readability, even though they are less compact.
 #### Example ecDNA cycle file (from [D458](https://www.ncbi.nlm.nih.gov/sra/SRX21566415)):
@@ -116,23 +116,20 @@ The capability of ec3D to expand the ecDNA Hi-C matrix additionally enables its 
 - ```--max_pooling```, Only keep significant interactions larger than their top, bottom, left and right neighbors.
 - ```--exclude <INT1 INT2, ...>```, Exclude significant interactions at given indices in the output and subsequent clustering process.
 #### Expected outout
+- (i) A ```*.tsv``` file describing the significant interactions computed from the input matrix ```*_significant_interactions.tsv```. Columns represent indices of the two bins involved in each significant interaction (given by annotation file); (normalized) Hi-C interaction frequencies; Poisson/Negative Binomial P-values and adjusted P-values, respectively. An example ```*_significant_interactions.tsv``` from D458 ecDNA:
 ```
-python3 significant_interactions.py --matrix <*.npy output from the last step>
---output_prefix <prefix of output, including path>
---pval_cutoff <float between (0, 1) indicating the P-value cutoff as significant interactions>
---log_fn <logs for significant interaction>
-```
-- The single output by ```significant_interactions.py``` is a ```*_significant_interactions.csv``` file indicating the significant interactions in the input matrix where the indices of bins are given by the annotation file. Example ```*_significant_interactions.csv```:
-```
-bin1,bin2,count,distance,p_value,q_value
-2,26,50.325278,24,0.000067,0.013997
-3,26,61.347507,23,0.000005,0.001745
-7,89,24.410618,82,0.000267,0.039469
-7,355,14.389584,292,0.000160,0.027056
-13,109,24.362287,96,0.000061,0.012875
-13,346,14.232664,307,0.000142,0.024759
+bin1	bin2	interaction	p_value	q_value
+0	348	36.323594	0.000428	0.039651
+0	349	40.438812	0.000011	0.002524
+0	350	37.250238	0.000248	0.027096
+1	346	39.230045	0.000054	0.008436
+1	347	41.097461	0.000037	0.006483
+1	349	43.453360	0.000009	0.002167
+1	350	40.806230	0.000011	0.002524
 ...
 ```
+- (ii) (Louvain) Clustering of significant interactions, in the form of a ```*.tsv``` file ```*_clustered_bins.tsv```, which maps each bin involved in a significant interaction to the corresponding cluster of that bin.
+
 ### Step 4 - Visualization
 ec3D by default will output 3 stylistic plots clarifying the 3D structure as well as the significant interaction of an ecDNA.
 ```
