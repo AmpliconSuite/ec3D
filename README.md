@@ -172,4 +172,4 @@ The minimum requirement of a significant interaction plot is just the ecDNA cycl
 	
 #### Expected outout
 - Running ```plot_interactions.py``` will produce a copy of ```*_expanded/collapsed_matrix.png```, and another copy of ```*_expanded/collapsed_matrix.pdf``` images with the prefix specified in ```--output_prefix```. See below for examples. Top left: plot of expanded matrix; Top right: plot of expanded matrix along with significant interactions; Bottom left: plot of collapsed matrix along with significant interactions; Bottom right: plot of expanded matrix with significant interactions and additional SVs identified by AmpliconArchitect.
-![alt text](https://github.com/kyzhu/ecDNA-3D-structure/blob/main/images/D458-5000.png)
+![alt text](https://github.com/AmpliconSuite/ec3D/blob/main/images/D458_5000.png)
