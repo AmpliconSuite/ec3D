@@ -44,18 +44,19 @@ def minimum_bounding_box(points, hull_edges, step = 100):
 			# Rotate points so that edge aligns with x-axis
 			angle1 = np.arctan2(edge[2], edge[0])
 			rotated_points, R1_ = rotate_points(points, angle1, 1)
-			rotated_edge, R1_ = rotate_points(edge, angle1, 1)
+			rotated_edge, R1__ = rotate_points(edge, angle1, 1)
 			angle2 = np.arctan2(rotated_edge[1], rotated_edge[0])
-			rotated_points, R2_ = rotate_points(rotated_points, angle2, 2)
+			rotated_points_, R2_ = rotate_points(rotated_points, angle2, 2)
             
 			# Rotate around x-axis to minimize height
 			for theta in np.linspace(0, np.pi * 0.5, step):
-				rotated_points_x, R3_ = rotate_points(rotated_points, theta, 0)
+				rotated_points_x, R3_ = rotate_points(rotated_points_, theta, 0)
 				height = np.max(rotated_points_x[:, 2]) - np.min(rotated_points_x[:, 2])
 				width = np.max(rotated_points_x[:, 1]) - np.min(rotated_points_x[:, 1])
 				length = np.max(rotated_points_x[:, 0]) - np.min(rotated_points_x[:, 0])
+
 				volume = length * height * width
-                
+
 				if volume < min_volume:
 					min_volume = volume
 					min_box = rotated_points_x
@@ -136,6 +137,7 @@ if __name__ == "__main__":
 		print(f"Length: {bbox.length}")
 		print(f"Width: {bbox.width}")
 		print(f"Height: {bbox.height}")
+		print(f"Corners: {bbox.corner_points}")
 	else:
 		bbox = minimum_bounding_box(points, list(hull_edges))
 		print("Dimensions of the optimal bounding box:")
@@ -143,6 +145,7 @@ if __name__ == "__main__":
 		print(f"Length: {bbox.length}")
 		print(f"Width: {bbox.width}")
 		print(f"Height: {bbox.height}")
+		print(f"Corners: {bbox.corner_points}")
 
 	# Create a scatter plot of the points
 	scatter = go.Scatter3d(x = points[:,0], 

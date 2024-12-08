@@ -172,6 +172,67 @@ if __name__ == "__main__":
 				for d in partition:
 					params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
+	elif args.matrix and args.model == 'distance_ratio':
+		if not (args.structure and args.annotation):
+			print("3D structure and annotation files are required to compute the distance ratio.")
+			os.abort()
+		X = np.array([])
+		if args.structure.endswith(".txt"):
+			X = np.loadtxt(args.structure)
+		elif args.structure.endswith(".npy"):
+			X = np.load(args.structure)
+		else:
+			raise OSError("Input matrix must be in *.txt or *.npy format.")
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
+
+		dis = euclidean_distances(X)
+		if args.genomic_distance_model == 'circular':
+			for i in range(N):
+				for j in range(i + 1, N):
+					d = min(abs(i - j), N - abs(i - j))
+					try:
+						params_est[d].append(d / dis[i][j])
+					except:
+						params_est[d] = [d / dis[i][j]]
+			for d in params_est.keys():
+				q25, q75 = np.percentile(params_est[d], [25 ,75])
+				params_est[d] = [c for c in params_est[d] if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
+				params_est[d] = [np.mean(params_est[d]), np.var(params_est[d])]
+		else: # Reference genomic distance
+			for i in range(N):
+				for j in range(i + 1, N):
+					d = N
+					if bins[i][0] == bins[j][0]:
+						d = min(d, abs(bins[i][1] - bins[j][1]))
+					try:
+						if d > 0:
+							params_est[d].append(d / dis[i][j])
+					except:
+						if d > 0:
+							params_est[d] = [d / dis[i][j]]
+			dist_partitions = []
+			partition, nbins = [], 0
+			for d_ in sorted(params_est.keys())[:-1]: # Equal occupancy binning
+				partition.append(d_)
+				nbins += len(params_est[d_])
+				if nbins > 0.5 * N:
+					dist_partitions.append(partition)
+					partition = []
+					nbins = 0
+			nbins += len(params_est[N])
+			if nbins > 0.5 * N:
+				dist_partitions.append(partition + [N])
+			else:
+				dist_partitions[-1] += (partition + [N])
+			for partition in dist_partitions:
+				interaction_freqs = []
+				for d in partition:
+					interaction_freqs += params_est[d]
+				q25, q75 = np.percentile(interaction_freqs, [25 ,75])
+				interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
+				for d in partition:
+					params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
 	
 	"""
 	Compute p-values
@@ -255,9 +316,11 @@ if __name__ == "__main__":
 							si[(i - pl, j - pl)] = [data[i][j], pval, qval]
 					qi += 1
 	elif args.matrix and (args.model == 'global_poisson' or args.model == 'global_nb'):
+		"""
 		if not args.matrix:
 			print("Please input the Hi-C matrix, in *.txt or *.npy format.")
 			os.abort()
+		"""
 		pvals = []
 		if args.model == "global_poisson":
 			if args.genomic_distance_model == 'circular':
@@ -333,10 +396,8 @@ if __name__ == "__main__":
 							pval = 1.0
 						pvals.append(pval)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
-
 		qvals = multipletests(pvals, alpha = 0.05, method = 'fdr_bh')[1]
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
-
 		qi = 0
 		for i in range(N):
 			for j in range(i + 1, N):
@@ -344,75 +405,38 @@ if __name__ == "__main__":
 					si[(i, j)] = [data[i][j], pvals[qi], qvals[qi]]
 				qi += 1
 	elif args.matrix:
-		if not (args.structure and args.annotation):
-			print("3D structure and annotation files are required to compute the distance ratio.")
-			os.abort()
-		X = np.array([])
-		if args.structure.endswith(".txt"):
-			X = np.loadtxt(args.structure)
-		elif args.structure.endswith(".npy"):
-			X = np.load(args.structure)
-		else:
-			raise OSError("Input matrix must be in *.txt or *.npy format.")
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
-
-		dis = euclidean_distances(X)
-		for i in range(N):
-			for j in range(i + 1, N):
-				d = N
-				if bins[i][0] == bins[j][0]:
-					d = min(d, abs(bins[i][1] - bins[j][1]))
-					try:
-						if d > 0:
-							params_est[d].append(d / dis[i][j])
-					except:
-						if d > 0:
-							params_est[d] = [d / dis[i][j]]
-				else:
-					try:
-						params_est[N].append(N / dis[i][j])
-					except:
-						params_est[N] = [N / dis[i][j]]
-		dist_partitions = []
-		partition, nbins = [], 0
-		for d_ in sorted(params_est.keys())[:-1]: # Equal occupancy binning
-			partition.append(d_)
-			nbins += len(params_est[d_])
-			if nbins > 0.5 * N:
-				dist_partitions.append(partition)
-				partition = []
-				nbins = 0
-		nbins += len(params_est[N])
-		if nbins > 0.5 * N:
-			dist_partitions.append(partition + [N])
-		else:
-			dist_partitions[-1] += (partition + [N])
-		print (dist_partitions)
-		for partition in dist_partitions:
-			interaction_freqs = []
-			for d in partition:
-				interaction_freqs += params_est[d]
-			q25, q75 = np.percentile(interaction_freqs, [25 ,75])
-			interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
-			for d in partition:
-				params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+		assert (args.model == 'distance_ratio')
 		pvals = []
-		for i in range(N):
-			for j in range(i + 1, N):
-				d = N
-				if bins[i][0] == bins[j][0]:
-					d = min(d, abs(bins[i][1] - bins[j][1]))
-				pval = 1.0
-				if d > 0:
-					#print (d, params_est[d])
-					mu = params_est[d][0]
-					sigma2 = params_est[d][1]
-					n = (mu ** 2) / (sigma2 - mu)
-					p = mu / sigma2
-					pval = 1 - nbinom.cdf(d / dis[i][j], n, p)
-				if np.isnan(pval):
+		if args.genomic_distance_model == 'circular':
+			for i in range(N):
+				for j in range(i + 1, N):
+					d = min(abs(i - j), N - abs(i - j))
 					pval = 1.0
-				pvals.append(pval)
+					if d > 0:
+						mu = params_est[d][0]
+						sigma2 = params_est[d][1]
+						n = (mu ** 2) / (sigma2 - mu)
+						p = mu / sigma2
+						pval = 1 - nbinom.cdf(d / dis[i][j], n, p)
+					if np.isnan(pval):
+						pval = 1.0
+					pvals.append(pval)
+		else:
+			for i in range(N):
+				for j in range(i + 1, N):
+					d = N
+					if bins[i][0] == bins[j][0]:
+						d = min(d, abs(bins[i][1] - bins[j][1]))
+					pval = 1.0
+					if d > 0:
+						mu = params_est[d][0]
+						sigma2 = params_est[d][1]
+						n = (mu ** 2) / (sigma2 - mu)
+						p = mu / sigma2
+						pval = 1 - nbinom.cdf(d / dis[i][j], n, p)
+					if np.isnan(pval):
+						pval = 1.0
+					pvals.append(pval)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
 		qvals = multipletests(pvals, alpha = 0.05, method = 'fdr_bh')[1]
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
