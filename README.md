@@ -131,23 +131,45 @@ bin1	bin2	interaction	p_value	q_value
 - (ii) (Louvain) Clustering of significant interactions, in the form of a ```*.tsv``` file ```*_clustered_bins.tsv```, which maps each bin involved in a significant interaction to the corresponding cluster of that bin.
 
 ### Step 4 - Visualization
-ec3D by default will output 3 stylistic plots clarifying the 3D structure as well as the significant interaction of an ecDNA.
-```
-python3 plot_interactions.py --ecdna_cycle <path of *.bed file>
---matrix <*.npy output from expand_hic.py>
---annotation <*.bed output from the last step>
---interactions <*_significant_interactions.csv from the last step>
---sv_list <optional AmpliconArchitect or AmpliconClassifier SV list>
---output_prefix <prefix of output, including path>
-```
-- Running ```plot_interactions.py``` will produce the following output image.
-![alt text](https://github.com/kyzhu/ecDNA-3D-structure/blob/main/images/D458-5000.png)
-```
-python3 plot_structures.py --structure <*_coordinates.npy>
---interactions <*_significant_interactions.csv from the last step>
---output_prefix <prefix of output, including path>
---log_fn <logs for optimization>
-```
-- Running ```plot_structures.py``` will produce the following two images.
+ec3D by default supports 2 stylistic plotting functionalities, respectively clarifying the 3D structure (output from Step [2](#step-2---reconstructing-the-3d-structure-of-ecdna)) and the significant interaction of an ecDNA (output from Step [3](#step-3---identifying-significant-interactions)).
+
+#### 4-1 Plotting 3D structures
+Usage: ```python3 plot_structure.py [Required arguments] [Optional arguments]```
+#### Required arguments
+- ```--structure <FILE>```, the structure reconstruction ```*_coordinates.txt/npy``` output from ```spatial_structure.py```.
+- ```--output_prefix <STRING>```, Prefix of the output plot(s).
+#### Optional arguments
+By default, only the structure will be rendered in the output html/png (see the left plot below). To facilitate interpretation and downstream analysis, one useful option is to plot the (onco)genes amplified on ecDNA (see the middle plot below), and for this you will need to specify  
+- ```--annotation```, Annotation of bins (```*_annotations.bed```) used in reconstructing the 3D structure.
+- ```--ref <hg19|GRCh37|hg38|GRCh38|mm10>```, The reference genome of the input ecDNA cycles (which should match the reference genome used for Hi-C preprocessing with e.g., HiC-pro). Currently, ec3D supports three reference genomes: hg19/GRCh37, hg38/GRCh38, and mm10.
+- One of ```--download_gene``` or ```--gene_fn <FILE>```. By default, ec3D will plot the selected oncogenes given in its ```data_repo``` if neither of ```--download_gene``` or ```--gene_fn``` is specified. If ```--download_gene``` is specified, ec3D will download the list of NCBI RefSeq genes provided by UCSC genome browser, and plot all genes in this list that (even partially) overlap with the ecDNA. You may also provide a local, custom gene list, in ```*.gff``` or ```*.gtf``` format, in ```--gene_fn```.  
+
+Another plotting option provided by ```plot_structure.py``` is to include the significant interactions as well as their clusters (see the right plot below), and for this purpose you will need
+- ```--interactions <FILE>```, The ```*_significant_interactions.tsv``` output from Step 3. 
+- ```--clusters <FILE>```, The ```*_clustered_bins.tsv``` output from Step 3.
 ![alt text](https://github.com/kyzhu/ecDNA-3D-structure/blob/main/images/D458_3D.png)
-![alt text](https://github.com/kyzhu/ecDNA-3D-structure/blob/main/images/hic_dis_correlation.png)
+
+Finally, ec3d additionally provides an option ```--noncyclic``` to plot a non-cyclic structure, including the 3D structure of a normal chromosomal segment. 
+
+#### Expected outout
+A single ```*_ec3d.html``` image, which allows to freely rotate the structure, and show/hide certain elements such as genes, bin numbers, breakpoints (that form the ecDNA), interactions and clusters. Adding ```--save_png``` can additionally take a screenshot of the structure in default view and save it as ```*_ec3d.png``` with the prefix specified in ```--output_prefix```.
+
+#### 4-2 Plotting significant interactions
+```python3 plot_interactions.py [Required arguments] [Optional arguments]```
+
+#### Required arguments
+The minimum requirement of a significant interaction plot is just the ecDNA cycle and the corresponding expanded matrix, so that only the Hi-C matrix (corresponding to ecDNA intervals) is plotted.  
+- ```--ecdna_cycle <FILE>```, ecDNA intervals in extended ```*.bed``` format (the same file used in [Preprocessing Hi-C](#step-1---preprocessing-hi-c)).
+- ```--resolution <INT>```, Resolution used in the above reconstrcutions.
+-	```--matrix <FILE>```, ICE normalized and expanded matrix in ```*.txt``` or ```*.npy``` format (```*_expanded_matrix.txt/npy```). Can also input a collapsed matrix here, see below for the ```--plot_collapsed_matrix``` option.
+- ```--output_prefix <STRING>```, Prefix of the output plot(s).
+
+#### Optional arguments
+- ```--interactions <FILE>```, The ```*_significant_interactions.tsv``` output from Step 3, to be visualized. Significant interactions will be plotted in the upper triangular part of the matrix. 
+- ```--sv_list <FILE>```, List of SV breakpoints, in [AmpliconClassifier](https://github.com/AmpliconSuite/AmpliconClassifier) ```*_SV_summary.tsv``` format. The first four columns should define the breakpoint in the form of ```chr1  pos1  chr2  pos2```. Breakpoints forming the ecDNA will appear on the diagonals. Addtional SV breakpoints that do not appear on the main ecDNA species will be plotted in the lower triangular part of the matrix. Also note that when these additional SV happen on a duplicated segment, they will occur (and be plotted) multiple times in an expanded matrix. 
+- ```--annotation <FILE>```, Annotation ```*.bed``` file, requested when either ```--sv_list``` or ```--plot_collapsed_matrix``` is specified.
+- ```--plot_collapsed_matrix```, Plot significant interactions on top of a collapsed matrix. Ec3D assumes that the input significant interactions are defined on an expanded matrix, so this option requires an annotation file to map interactions to indices in collapsed matrix. 
+	
+#### Expected outout
+- Running ```plot_interactions.py``` will produce a copy of ```*_expanded/collapsed_matrix.png```, and another copy of ```*_expanded/collapsed_matrix.pdf``` images with the prefix specified in ```--output_prefix```. See below for examples. Top left: plot of expanded matrix; Top right: plot of expanded matrix along with significant interactions; Bottom left: plot of collapsed matrix along with significant interactions; Bottom right: plot of expanded matrix with significant interactions and additional SVs identified by AmpliconArchitect.
+![alt text](https://github.com/kyzhu/ecDNA-3D-structure/blob/main/images/D458-5000.png)
