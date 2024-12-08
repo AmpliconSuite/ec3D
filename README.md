@@ -147,7 +147,7 @@ By default, only the structure will be rendered in the output html/png (see the 
 Another plotting option provided by ```plot_structure.py``` is to include the significant interactions as well as their clusters (see the right plot below), and for this purpose you will need
 - ```--interactions <FILE>```, The ```*_significant_interactions.tsv``` output from Step 3. 
 - ```--clusters <FILE>```, The ```*_clustered_bins.tsv``` output from Step 3.
-![alt text](https://github.com/kyzhu/ecDNA-3D-structure/blob/main/images/D458_3D.png)
+![alt text](https://github.com/AmpliconSuite/ec3D/blob/main/images/D458_3D.png)
 
 Finally, ec3d additionally provides an option ```--noncyclic``` to plot a non-cyclic structure, including the 3D structure of a normal chromosomal segment. 
 
