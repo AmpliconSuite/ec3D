@@ -11,7 +11,24 @@
 - Plotly (https://plotly.com/python/) and Kaleido (https://pypi.org/project/kaleido/)
 
 ## Installation
-
+### Step 1 - Downloading ec3D
+```
+git clone git@github.com:AmpliconSuite/ec3D.git
+```
+### Step 2 - Entering the working directory
+```
+cd /path/to/ec3D
+```
+### Step 3 - Setting up the running environment
+Option 1: Conda
+```
+conda env create -f environment.yml
+conda activate ec3D_env
+```
+Option 2: pip
+```
+pip3 install .
+```
 ## Running
 ### Batch mode
 The easiest way to run ec3D is running in **batch** mode, performing all following steps (i.e., [Preprocessing Hi-C](#step-1---preprocessing-hi-c), [Reconstructing the 3D structure of ecDNA](#step-2---reconstructing-the-3d-structure-of-ecdna), [Identifying significant interactions](#step-3---identifying-significant-interactions), and [Visualization](#step-4---visualization)), with default parameters. For custom parameter adjustments, it is best to run through individual steps.
