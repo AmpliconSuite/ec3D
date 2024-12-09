@@ -121,7 +121,7 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 		y = concordant_edges_y,
 		z = concordant_edges_z,
 		mode = 'lines',
-		line = dict(color = 'gray', width = 4.0),
+		line = dict(color = 'gray', width = 6.0),
 		name = 'Edges',
 		visible = True,  
 		showlegend = False
@@ -132,7 +132,7 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 		y = discordant_edges_y,
 		z = discordant_edges_z,
 		mode = 'lines',
-		line = dict(color = 'black', width = 4.0, dash = 'dashdot'),
+		line = dict(color = 'black', width = 6.0, dash = 'dashdot'),
 		name = 'Edges',
 		visible = True,  
 		showlegend = False
@@ -216,7 +216,7 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 				y = edge_y,
 				z = edge_z,
 				mode = 'lines',
-				line = dict(width = 8.0, color = edge_color),
+				line = dict(width = 12.0, color = edge_color),
 				name = gene_name_with_strand,  # Use gene name with strand in the legend
 				legendgroup = gene,
 				showlegend = True,
@@ -251,23 +251,24 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 			name = f'Cluster {cluster_id} Sig Interactions',
 			visible = 'legendonly'
 		))
-		if not show_background:
-			fig.update_layout(
-				margin = dict(l = 10, r = 10, t = 20, b = 10),
-				scene_dragmode = 'orbit',
-				scene_camera = camera, 
-				scene = dict(
-					xaxis = dict(visible = False),
-					yaxis = dict(visible = False),
-					zaxis =dict(visible = False)
-				)
+	
+	if not show_background:
+		fig.update_layout(
+			margin = dict(l = 10, r = 10, t = 20, b = 10),
+			scene_dragmode = 'orbit',
+			scene_camera = camera, 
+			scene = dict(
+				xaxis = dict(visible = False),
+				yaxis = dict(visible = False),
+				zaxis =dict(visible = False)
 			)
-		else:
-			fig.update_layout(
-				margin = dict(l = 10, r = 10, t = 20, b = 10),
-				scene_dragmode = 'orbit',
-				scene_camera = camera
-			)
+		)
+	else:
+		fig.update_layout(
+			margin = dict(l = 10, r = 10, t = 20, b = 10),
+			scene_dragmode = 'orbit',
+			scene_camera = camera
+		)
 	fig.write_html(output_prefix + "_ec3d.html")
 	if save_png:
 		fig.write_image(output_prefix + "_ec3d.png", scale = 2.5)
@@ -276,10 +277,10 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = "Visualize the 3D structure of ecDNA.")
 	parser.add_argument("--structure", help = "The 3D structure of ecDNA, in *.txt or *.npy format", required = True)
-	parser.add_argument("--interactions", help = "Significant interactions to visualize.", required = True)
-	parser.add_argument("--clusters", help = "Clusters of significant interactions to visualize.", required = True)
-	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.", required = True)
-	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.", required = True)
+	parser.add_argument("--interactions", help = "Significant interactions to visualize.")
+	parser.add_argument("--clusters", help = "Clusters of significant interactions to visualize.")
+	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.")
+	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.")
 	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
 	parser.add_argument("--download_gene", help = "Download gene list from UCSC Genome Browser.", action = 'store_true')
 	parser.add_argument("--gene_fn", help = "Parse user provided gene list, in *.gff of *.gtf format.")
@@ -326,15 +327,19 @@ if __name__ == '__main__':
 	Read significant interactions
 	"""
 	si = []
-	i = 0
-	fp = open(args.interactions, 'r')
-	for line in fp:
-		if i > 0:
-			si.append(line.strip().split('\t'))
-		i += 1
-	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded significant interactions.")
-	logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "Significant interactions: %s" %si)
+	if args.interactions:
+		if not args.clusters:
+			warnings.warn("Need clusters of significant interactions to visualize. Ignoring input significant interactions.")
+		else:
+			i = 0
+			fp = open(args.interactions, 'r')
+			for line in fp:
+				if i > 0:
+					si.append(line.strip().split('\t'))
+				i += 1
+			fp.close()
+			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded significant interactions.")
+			logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "Significant interactions: %s" %si)
 
 	"""
 	Read annotations and map bins to gene names
@@ -369,7 +374,7 @@ if __name__ == '__main__':
 	else: # Use the oncogene files provided in data_repo
 		if args.ref == 'hg19' or args.ref == 'GRCh37':
 			oncogene_fn += "AC_oncogene_set_GRCh37.gff"
-		elif args.ref == 'hg38' or args.ref == 'GRCh38':
+		elif args.ref == 'hg38' or args.ref == 'GRCh38' or not args.annotation:
 			oncogene_fn += "AC_oncogene_set_hg38.gff"
 		elif args.ref == 'mm10' or args.ref == 'GRCm38':
 			oncogene_fn += "AC_oncogene_set_mm10.gff"
@@ -407,51 +412,53 @@ if __name__ == '__main__':
 	bin2gene = dict()
 	unique_genes = set()
 	redundant_genes = set()
-	fp = open(args.annotation, 'r')
-	for line in fp:
-		s = line.strip().split('\t')
-		if res < 0:
-			res = int(s[2]) - int(s[1])
-		for i in range(3, len(s)):
-			bins[int(s[i])] = [s[0], int(s[1])]
-		for (gene, gene_intrvl) in oncogenes[s[0]].items():
-			if int(s[1]) <= gene_intrvl[1] and gene_intrvl[0] <= int(s[2]):
-				for i in range(3, len(s)):
-					if int(s[i]) in bin2gene:
-						for gene_ in bin2gene[int(s[i])].keys():
-							if len(gene_) > len(gene):
-								redundant_genes.add(gene_)
-							elif len(gene_) == len(gene):
-								redundant_genes.add(gene_)
-								redundant_genes.add(gene)
-						bin2gene[int(s[i])][gene] = gene_intrvl[2]
-					else:
-						bin2gene[int(s[i])] = {gene: gene_intrvl[2]}
-					unique_genes.add(gene)
-	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped the following bins to genes.")
-	for bin_num in bin2gene:
-		for gene in bin2gene[bin_num].keys():
-			logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + \
-					"Bin number: %d; Gene name: %s; Strand: %s" %(bin_num, gene, bin2gene[bin_num][gene]))
+	if args.annotation:
+		fp = open(args.annotation, 'r')
+		for line in fp:
+			s = line.strip().split('\t')
+			if res < 0:
+				res = int(s[2]) - int(s[1])
+			for i in range(3, len(s)):
+				bins[int(s[i])] = [s[0], int(s[1])]
+			for (gene, gene_intrvl) in oncogenes[s[0]].items():
+				if int(s[1]) <= gene_intrvl[1] and gene_intrvl[0] <= int(s[2]):
+					for i in range(3, len(s)):
+						if int(s[i]) in bin2gene:
+							for gene_ in bin2gene[int(s[i])].keys():
+								if len(gene_) > len(gene):
+									redundant_genes.add(gene_)
+								elif len(gene_) == len(gene):
+									redundant_genes.add(gene_)
+									redundant_genes.add(gene)
+							bin2gene[int(s[i])][gene] = gene_intrvl[2]
+						else:
+							bin2gene[int(s[i])] = {gene: gene_intrvl[2]}
+						unique_genes.add(gene)
+		fp.close()
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped the following bins to genes.")
+		for bin_num in bin2gene:
+			for gene in bin2gene[bin_num].keys():
+				logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+						"Bin number: %d; Gene name: %s; Strand: %s" %(bin_num, gene, bin2gene[bin_num][gene]))
 
 	breakpoints = [(-1, 0)]
 	if args.noncyclic:
 		breakpoints = []
-	for i in range(len(bins) - 1):
-		if bins[i][0] != bins[i + 1][0]:
-			breakpoints.append((i, i + 1))
-		elif abs(bins[i + 1][1] - bins[i][1]) != res:
-			breakpoints.append((i, i + 1))
-		else:
-			if 1 < i < len(bins) - 2 and bins[i][0] == bins[i - 1][0] and bins[i + 1][0] == bins[i + 2][0] and \
-				abs(bins[i][1] - bins[i - 1][1]) == res and abs(bins[i + 2][1] - bins[i + 1][1]) == res and \
-				bins[i][1] - bins[i - 1][1] != bins[i + 2][1] - bins[i + 1][1]: #foldbacks
+	if len(bins) > 0:
+		for i in range(len(bins) - 1):
+			if bins[i][0] != bins[i + 1][0]:
 				breakpoints.append((i, i + 1))
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Extracted %d breakpoint from annotation file." %(len(breakpoints)))
-	logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "breakpoints %s" %(breakpoints))
-				
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Identified breakpoints from annotation file.")
+			elif abs(bins[i + 1][1] - bins[i][1]) != res:
+				breakpoints.append((i, i + 1))
+			else:
+				if 1 < i < len(bins) - 2 and bins[i][0] == bins[i - 1][0] and bins[i + 1][0] == bins[i + 2][0] and \
+					abs(bins[i][1] - bins[i - 1][1]) == res and abs(bins[i + 2][1] - bins[i + 1][1]) == res and \
+					bins[i][1] - bins[i - 1][1] != bins[i + 2][1] - bins[i + 1][1]: #foldbacks
+					breakpoints.append((i, i + 1))
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Extracted %d breakpoint from annotation file." %(len(breakpoints)))
+		logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "breakpoints %s" %(breakpoints))	
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Identified breakpoints from annotation file.")
+
 	# Assign colors to genes
 	gene_colors = dict()
 	for gene in unique_genes:
@@ -461,15 +468,20 @@ if __name__ == '__main__':
 	
 	# Read in and visualize clusters
 	clusters = []
-	i = 0
-	fp = open(args.clusters, 'r')
-	for line in fp:
-		if i > 0:
-			clusters.append(line.strip().split('\t'))
-		i += 1
-	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
+	if args.clusters:
+		if not args.interactions:
+			print("Significant interactions are required to visualize clusters.")
+			os.abort()
+		i = 0
+		fp = open(args.clusters, 'r')
+		for line in fp:
+			if i > 0:
+				clusters.append(line.strip().split('\t'))
+			i += 1
+		fp.close()
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
+
 	noncyclic_ = False
 	plot_axis_ = False
 	save_png = False
