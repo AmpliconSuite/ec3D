@@ -11,21 +11,17 @@
 - Plotly (https://plotly.com/python/) and Kaleido (https://pypi.org/project/kaleido/)
 
 ## Installation
-### Step 1 - Downloading ec3D
+ec3D can be installed and run on most modern Unix-like operating systems (e.g. Ubuntu 18.04+, CentOS 7+, macOS). It requires python>=3.7 and the above dependencies. To install ec3D, you will first need to download its source code,
 ```
 git clone git@github.com:AmpliconSuite/ec3D.git
-```
-### Step 2 - Entering the working directory
-```
 cd /path/to/ec3D
 ```
-### Step 3 - Setting up the running environment
-Option 1: Conda
+And, then, setting up the running environment with **Conda**
 ```
 conda env create -f environment.yml
 conda activate ec3D_env
 ```
-Option 2: pip
+or **pip**,
 ```
 pip3 install .
 ```
