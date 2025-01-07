@@ -37,6 +37,18 @@ The only required input for ec3D is a Hi-C matrix, in ```*.cool``` format, and a
 - ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file. Each ```ec3D``` run must only work with a single fixed resolution.
 - ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
 
+### Sample run of ec3D
+As a test sample, you can download the processed Hi-C dataset for D458 (a pediatric medulloblastoma cell line) from [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM7697651), and convert it to ```*.mcool``` format:
+```
+wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM7697nnn/GSM7697651/suppl/GSM7697651%5FD458.allValidPairs.hic
+hic2cool convert GSM7697651_D458.allValidPairs.hic D458.mcool
+```
+Then, use [this ecDNA cycle](https://github.com/AmpliconSuite/ec3D/) below to kick off a ec3D batch run.
+```
+mkdir sample_output
+python3 ec3D.py --cool D458.mcool::/resolutions/5000 --ecdna_cycle D458_ecDNA.bed --output_prefix ./sample_output/D458 --resolution 5000
+```
+
 ### Step 1 - Preprocessing Hi-C
 Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```*.bed``` format), output the Hi-C matrix corresponding to ecDNA to work on in the following steps, and the annotation of each bin at a given resolution. 
 #### Usage
@@ -64,7 +76,7 @@ chr8	128443842	128452940	+	1	True	1.000000
 chr8	128458992	129085009	+	1	True	1.000000
 ```
 - The provided ecDNA structure in a cycle bed file may include duplicated segments in its records, e.g., ```chr8 127293093 127948583``` and ```chr8 127872074 128441212```.  We refer to _collapsed_ matrix as the Hi-C matrix where each duplicated segment occurs only one time; and _expanded_ matrix as the Hi-C matrix representing the structure of ecDNA where all duplicated segments occur as many times as they are duplicated. ec3D will automatically process cycle files containing duplicated segments and reconstruct the underlying ecDNA structures, regardless of whether the input from ```--ecdna_cycle``` contains duplication or not.
-#### Expected outout
+#### Output of Step 1
 Outputs from ```extract_matrix.py``` include 
 - (i) the ICE normalized collapsed matrix ```*_ice_normalized.npy```;
 - (ii) the raw collapsed matrix ```*_original_matrix.npy```; and
@@ -102,7 +114,7 @@ ec3D optimizes the Poisson likelihood with the l-BFGS algorithm implemented in [
 
 And finally, to work with ```*.npy``` format, you can again specify
 - ```--save_npy``` to save the output numpy matrices in ```*.npy``` format.
-#### Expected outout
+#### Output of Step 2
 After ```spatial_structure.py``` is completed, the following files will be written to the path specified in ```--output_prefix```:
 - (i) Most importantly, ```*_coordinates.txt/npy```, the optimal ecDNA structure reconstruction as 3D coordinates for each bin in the expanded matrix, sorted by the indices of bins specified in the input annotation file;
 - (ii) The optimal values of alpha and beta in ```*_hyperparameters.txt```; and
@@ -128,7 +140,7 @@ The capability of ec3D to expand the ecDNA Hi-C matrix additionally enables its 
 - ```--pval_cutoff <FLOAT>```, (Adjusted) P-value cutoff for significant interactions, default value is 0.05.
 - ```--max_pooling```, Only keep significant interactions larger than their top, bottom, left and right neighbors.
 - ```--exclude <INT1 INT2, ...>```, Exclude significant interactions at given indices in the output and subsequent clustering process.
-#### Expected outout
+#### Output of Step 3
 - (i) A ```*.tsv``` file describing the significant interactions computed from the input matrix ```*_significant_interactions.tsv```. Columns represent indices of the two bins involved in each significant interaction (given by annotation file); (normalized) Hi-C interaction frequencies; Poisson/Negative Binomial P-values and adjusted P-values, respectively. An example ```*_significant_interactions.tsv``` from D458 ecDNA:
 ```
 bin1	bin2	interaction	p_value	q_value
@@ -164,7 +176,7 @@ Another plotting option provided by ```plot_structure.py``` is to include the si
 
 Finally, ec3d additionally provides an option ```--noncyclic``` to plot a non-cyclic structure, including the 3D structure of a normal chromosomal segment. 
 
-#### Expected outout
+#### Output of Step 4-1
 A single ```*_ec3d.html``` image, which allows to freely rotate the structure, and show/hide certain elements such as genes, bin numbers, breakpoints (that form the ecDNA), interactions and clusters. Adding ```--save_png``` can additionally take a screenshot of the structure in default view and save it as ```*_ec3d.png``` with the prefix specified in ```--output_prefix```.
 
 #### 4-2 Plotting significant interactions
@@ -183,6 +195,6 @@ The minimum requirement of a significant interaction plot is just the ecDNA cycl
 - ```--annotation <FILE>```, Annotation ```*.bed``` file, requested when either ```--sv_list``` or ```--plot_collapsed_matrix``` is specified.
 - ```--plot_collapsed_matrix```, Plot significant interactions on top of a collapsed matrix. Ec3D assumes that the input significant interactions are defined on an expanded matrix, so this option requires an annotation file to map interactions to indices in collapsed matrix. 
 	
-#### Expected outout
+#### Output of Step 4-2
 - Running ```plot_interactions.py``` will produce a copy of ```*_expanded/collapsed_matrix.png```, and another copy of ```*_expanded/collapsed_matrix.pdf``` images with the prefix specified in ```--output_prefix```. See below for examples. Top left: plot of expanded matrix; Top right: plot of expanded matrix along with significant interactions; Bottom left: plot of collapsed matrix along with significant interactions; Bottom right: plot of expanded matrix with significant interactions and additional SVs identified by AmpliconArchitect.
 ![alt text](https://github.com/AmpliconSuite/ec3D/blob/main/images/D458_5000.png)
