@@ -60,7 +60,7 @@ Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```
 - ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```.
 #### Optional arguments
 - ```--save_npy```, Save output matrices in ```*.npy``` format. Note that by default, the ecDNA matrices are saved in ```*.txt``` format for easier readability, even though they are less compact.
-#### Example ecDNA cycle file (from [D458](https://www.ncbi.nlm.nih.gov/sra/SRX21566415)):
+#### [Example ecDNA cycle file](https://github.com/AmpliconSuite/ec3D/blob/main/sample/D458_ecDNA.bed) (from [D458](https://www.ncbi.nlm.nih.gov/sra/SRX21566415)):
 ```
 #chr	start	end	orientation	cycle_id	iscyclic	weight
 chr8	127293093	127948583	+	1	True	1.000000
