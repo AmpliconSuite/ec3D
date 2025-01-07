@@ -9,7 +9,7 @@ if __name__ == "__main__":
 	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
 	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
 	parser.add_argument("--resolution", help = "Bin size.", required = True)
-	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.", required = True)
+	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.")
 	parser.add_argument("--save_npy", help = "Save matrices to npy format", action = "store_true")
 	args = parser.parse_args()
 	
@@ -96,9 +96,9 @@ if __name__ == "__main__":
 	plt_command_2 = "python3 %s/plot_structure.py --structure " %src_dir + args.output_prefix + "_coordinates.txt"
 	if args.save_npy:
 		plt_command_2 = "python3 %s/plot_structure.py --structure " %src_dir + args.output_prefix + "_coordinates.npy"
-	plt_command_2 += (" --interactions " + args.output_prefix + "_significant_interactions.tsv")
-	plt_command_2 += (" --clusters " + args.output_prefix + "_clustered_bins.tsv")
-	plt_command_2 += (" --annotation " + args.output_prefix + "_annotations.bed --ref " + args.ref)
+	#plt_command_2 += (" --interactions " + args.output_prefix + "_significant_interactions.tsv")
+	#plt_command_2 += (" --clusters " + args.output_prefix + "_clustered_bins.tsv")
+	#plt_command_2 += (" --annotation " + args.output_prefix + "_annotations.bed --ref " + args.ref)
 	plt_command_2 += (" --output_prefix " + args.output_prefix)
 	print (plt_command_2)
 	p = subprocess.Popen(plt_command_2, shell = True)
