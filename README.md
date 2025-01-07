@@ -43,7 +43,7 @@ As a test sample, you can download the processed Hi-C dataset for D458 (a pediat
 wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM7697nnn/GSM7697651/suppl/GSM7697651%5FD458.allValidPairs.hic
 hic2cool convert GSM7697651_D458.allValidPairs.hic D458.mcool
 ```
-Then, use [this ecDNA cycle](https://github.com/AmpliconSuite/ec3D/) below to kick off a ec3D batch run.
+Then, use [this ecDNA cycle](https://github.com/AmpliconSuite/ec3D/blob/main/sample/D458_ecDNA.bed) below to kick off a ec3D batch run.
 ```
 mkdir sample_output
 python3 ec3D.py --cool D458.mcool::/resolutions/5000 --ecdna_cycle D458_ecDNA.bed --output_prefix ./sample_output/D458 --resolution 5000
