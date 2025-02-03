@@ -36,7 +36,7 @@ dependencies:
   - brotli-python=1.1.0=py38h17151c0_1
   - bzip2=1.0.8=h4bc722e_7
   - c-ares=1.32.3=h4bc722e_0
-  - ca-certificates=2024.8.30=hbcca054_0
+  - ca-certificates=2025.1.31=hbcca054_0
   - cached-property=1.5.2=hd8ed1ab_1
   - cached_property=1.5.2=pyha770c72_1
   - certifi=2024.8.30=pyhd8ed1ab_0
@@ -52,6 +52,13 @@ dependencies:
   - dask-core=2023.5.0=pyhd8ed1ab_0
   - dill=0.3.9=pyhd8ed1ab_0
   - distributed=2023.5.0=pyhd8ed1ab_0
+  - expat=2.6.4=h5888daf_0
+  - font-ttf-dejavu-sans-mono=2.37=hab24e00_0
+  - font-ttf-inconsolata=3.000=h77eed37_0
+  - font-ttf-source-code-pro=2.038=h77eed37_0
+  - font-ttf-ubuntu=0.83=h77eed37_3
+  - fontconfig=2.15.0=h7e30c49_1
+  - fonts-conda-forge=1=0
   - fonttools=4.53.1=py38h2019614_0
   - freetype=2.12.1=h267a509_2
   - fsspec=2024.9.0=pyhff2d567_0
@@ -73,6 +80,7 @@ dependencies:
   - importlib_resources=6.4.5=pyhd8ed1ab_0
   - jinja2=3.1.4=pyhd8ed1ab_0
   - joblib=1.4.2=pyhd8ed1ab_0
+  - kaleido-core=0.2.1=h3644ca4_0
   - keyutils=1.6.1=h166bdaf_0
   - kiwisolver=1.4.5=py38h7f3f72f_1
   - krb5=1.21.3=h659f571_0
@@ -96,6 +104,7 @@ dependencies:
   - libedit=3.1.20191231=he28a2e2_2
   - libev=4.33=hd590300_2
   - libevent=2.1.12=hf998b51_1
+  - libexpat=2.6.4=h5888daf_0
   - libffi=3.4.2=h7f98852_5
   - libgcc=14.2.0=h77fa898_1
   - libgcc-ng=14.2.0=h69a702a_1
@@ -133,16 +142,19 @@ dependencies:
   - lz4=4.3.3=py38hdcd8cb4_0
   - lz4-c=1.9.4=hcb278e6_0
   - markupsafe=2.1.5=py38h01eb140_0
+  - mathjax=2.7.7=ha770c72_3
   - matplotlib-base=3.7.3=py38h58ed7fa_0
   - msgpack-python=1.0.8=py38hea7755e_0
   - multiprocess=0.70.16=py38h01eb140_0
   - munkres=1.1.4=pyh9f0ad1d_0
   - ncurses=6.5=he02047a_1
   - networkx=3.1=py38h06a4308_0
+  - nspr=4.36=h5888daf_0
+  - nss=3.105=hd34e28f_0
   - numpy=1.24.4=py38h59b608b_0
   - openblas=0.3.27=pthreads_h9eca1d5_1
   - openjpeg=2.5.2=h488ebb8_0
-  - openssl=3.3.2=hb9d3cd8_0
+  - openssl=3.4.0=h7b32b05_1
   - orc=2.0.2=h690cf93_1
   - packaging=24.1=pyhd8ed1ab_0
   - pairix=0.3.8=py38h6bfa29d_3
@@ -166,6 +178,7 @@ dependencies:
   - pysocks=1.7.1=pyha2e5f31_6
   - python=3.8.20=h4a871b0_2_cpython
   - python-dateutil=2.9.0=pyhd8ed1ab_0
+  - python-kaleido=0.2.1=pyhd8ed1ab_0
   - python-louvain=0.16=pyhd8ed1ab_0
   - python-tzdata=2024.2=pyhd8ed1ab_0
   - python_abi=3.8=5_cp38
@@ -184,6 +197,7 @@ dependencies:
   - six=1.16.0=pyh6c4a22f_0
   - snappy=1.2.1=ha2e4443_0
   - sortedcontainers=2.4.0=pyhd8ed1ab_0
+  - sqlite=3.46.1=h9eae976_0
   - statsmodels=0.14.0=py38ha9d4c09_0
   - tblib=3.0.0=pyhd8ed1ab_0
   - tenacity=9.0.0=pyhd8ed1ab_0
