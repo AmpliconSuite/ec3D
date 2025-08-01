@@ -158,11 +158,12 @@ if __name__ == "__main__":
 					dist_partitions.append(partition)
 					partition = []
 					nbins = 0
-			nbins += len(params_est[N])
+			ldist = sorted(params_est.keys())[-1]
+			nbins += len(params_est[ldist])
 			if nbins > 0.5 * N:
-				dist_partitions.append(partition + [N])
+				dist_partitions.append(partition + [ldist])
 			else:
-				dist_partitions[-1] += (partition + [N])
+				dist_partitions[-1] += (partition + [ldist])
 			for partition in dist_partitions:
 				interaction_freqs = []
 				for d in partition:

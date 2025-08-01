@@ -718,7 +718,7 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 		f_alpha = results2[1]
 		"""
 		alpha, beta, f_alpha = estimate_alpha_beta(X_, C_nodup, S, C_dup, alpha, beta)
-		if beta > 100.0 or beta < 0.01:
+		if beta > 400.0 or beta < 0.01:
 			return X_, results[1], alpha, beta
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tEstimated alpha = %f; beta = %f." %(alpha, beta))
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + 
@@ -947,6 +947,7 @@ if __name__ == "__main__":
 		"""
 		try:
 			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.structure, alpha = args.init_alpha, reg_weight = args.reg)
+			np.savetxt(args.output_prefix + "_" + str(repeat) + '_coordinates.txt', PM_X)
 			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
 			if PM_obj < PM_obj_min:
 				if np.isinf(PM_obj_min):

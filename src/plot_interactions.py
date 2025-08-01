@@ -231,8 +231,8 @@ if __name__ == '__main__':
 	# Adjust ticks on the axis
 	ax.set_xticks(mid_pos, minor = False)
 	ax.set_xticklabels(xticklbl, rotation = 45, ha = 'left',fontsize = fontsize, minor = False)
-	ax.set_yticks(yticklbl[1:], minor = False)
-	ax.set_yticklabels(yticklbl[1:], fontsize = fontsize, minor = False)
+	ax.set_yticks(yticklbl, minor = False)
+	ax.set_yticklabels(yticklbl, fontsize = fontsize, minor = False)
 	ax.set_ylabel("Bins (%dKb resolution)" %(res // 1000), fontsize = fontsize)
 	if args.plot_collapsed_matrix:
 		ax.set_xlabel(args.output_prefix.split('/')[-1] + "_collapsed_matrix", fontsize = fontsize)
