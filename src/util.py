@@ -24,8 +24,12 @@ def read_ecDNA_cycle(fn, res):
 	for line in fp:
 		s = line.strip().split()
 		if s[0] in chr_idx:
-			intrvls.append([s[0], round(float(s[1]) / res) * res, round(float(s[2]) / res) * res, s[3]])
+			if s[5] != "+" and s[5] != "-": 
+				raise ValueError("Invalid strand information in the input file %s." %fn)
+			intrvls.append([s[0], round(float(s[1]) / res) * res, round(float(s[2]) / res) * res, s[5]])
 	fp.close()
+	if len(intrvls) == 0:
+		raise ValueError("Empty ecDNA sequence.")
 	return intrvls
 
 
