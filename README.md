@@ -31,9 +31,9 @@ The easiest way to run ec3D is running in **batch** mode, performing all followi
 ```
 python3 ec3D.py --cool <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRING>
 ```
-The only required input for ec3D is a Hi-C matrix, in ```*.cool``` format, and an ecDNA cycle, in extended ```*.bed``` format. Of course, you will need to specify the resolution to work with, and a prefix of the desired output. After a successful reconstruction, ```ec3D.py``` will write all default output files in the following steps into the path specified in ```--output_prefix```.
+The only required input for ec3D is a Hi-C matrix, in ```*.cool``` format, and an ecDNA cycle, in browser extensible data (```*.bed```) format. Of course, you will need to specify the resolution to work with, and a prefix of the desired output. After a successful reconstruction, ```ec3D.py``` will write all default output files in the following steps into the path specified in ```--output_prefix```.
 - ```--cool <FILE>```, Hi-C matrix, in ```*.cool``` format. Usually [cooler](https://cooler.readthedocs.io/) will organize multiple cool files with different resolutions in ```*.mcool``` format, and you will need to add a suffix ```::/resolutions/<RESOLUTION>``` to specify the resolution you want to work with.
-- ```--ecdna_cycle <FILE>```, ecDNA intervals, in extended ```*.bed``` (chr, start, end, orientation) format, see below for an example.
+- ```--ecdna_cycle <FILE>```, ecDNA intervals, in ```*.bed``` (with chr, start, end stored in the first three columns and strand orientation stored in the 6-th column) format, see below for an example.
 - ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file. Each ```ec3D``` run must only work with a single fixed resolution.
 - ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
 
@@ -55,25 +55,25 @@ Given the whole genome Hi-C (in ```*.cool``` format) and the ecDNA cycle (in ```
 ```python3 extract_matrix.py [Required arguments] [Optional arguments]```
 #### Required arguments
 - ```--cool <FILE>```, Hi-C matrix, in ```*.cool``` format.
-- ```--ecdna_cycle <FILE>```, ecDNA intervals, in extended ```*.bed``` format.
+- ```--ecdna_cycle <FILE>```, ecDNA intervals, in ```*.bed``` format.
 - ```--resolution <INT>```, Resolution, which should match the resolution of the input ```*.cool``` file.
 - ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```.
 #### Optional arguments
 - ```--save_npy```, Save output matrices in ```*.npy``` format. Note that by default, the ecDNA matrices are saved in ```*.txt``` format for easier readability, even though they are less compact.
 #### [Example ecDNA cycle file](https://github.com/AmpliconSuite/ec3D/blob/main/sample/D458_ecDNA.bed) (from [D458](https://www.ncbi.nlm.nih.gov/sra/SRX21566415)):
 ```
-#chr	start	end	orientation	cycle_id	iscyclic	weight
-chr8	127293093	127948583	+	1	True	1.000000
-chr8	127872074	128441212	-	1	True	1.000000
-chr8	128505994	128527415	+	1	True	1.000000
-chr8	127293093	127455873	-	1	True	1.000000
-chr8	129033869	129085009	-	1	True	1.000000
-chr8	127850424	127870604	+	1	True	1.000000
-chr14	56593089	56794203	+	1	True	1.000000
-chr14	56797826	56986857	-	1	True	1.000000
-chr8	127957689	128012988	-	1	True	1.000000
-chr8	128443842	128452940	+	1	True	1.000000
-chr8	128458992	129085009	+	1	True	1.000000
+#chr	start	end	cycle_id	weight	orientation	iscyclic
+chr8	127293093	127948583	1	1.000000	+	True
+chr8	127872074	128441212	1	1.000000	-	True
+chr8	128505994	128527415	1	1.000000	+	True
+chr8	127293093	127455873	1	1.000000	-	True
+chr8	129033869	129085009	1	1.000000	-	True
+chr8	127850424	127870604	1	1.000000	+	True
+chr14	56593089	56794203	1	1.000000	+	True
+chr14	56797826	56986857	1	1.000000	-	True
+chr8	127957689	128012988	1	1.000000	-	True
+chr8	128443842	128452940	1	1.000000	+	True
+chr8	128458992	129085009	1	1.000000	+	True
 ```
 - The provided ecDNA structure in a cycle bed file may include duplicated segments in its records, e.g., ```chr8 127293093 127948583``` and ```chr8 127872074 128441212```.  We refer to _collapsed_ matrix as the Hi-C matrix where each duplicated segment occurs only one time; and _expanded_ matrix as the Hi-C matrix representing the structure of ecDNA where all duplicated segments occur as many times as they are duplicated. ec3D will automatically process cycle files containing duplicated segments and reconstruct the underlying ecDNA structures, regardless of whether the input from ```--ecdna_cycle``` contains duplication or not.
 #### Output of Step 1
@@ -184,7 +184,7 @@ A single ```*_ec3d.html``` image, which allows to freely rotate the structure, a
 
 #### Required arguments
 The minimum requirement of a significant interaction plot is just the ecDNA cycle and the corresponding expanded matrix, so that only the Hi-C matrix (corresponding to ecDNA intervals) is plotted.  
-- ```--ecdna_cycle <FILE>```, ecDNA intervals in extended ```*.bed``` format (the same file used in [Preprocessing Hi-C](#step-1---preprocessing-hi-c)).
+- ```--ecdna_cycle <FILE>```, ecDNA intervals in ```*.bed``` format (the same file used in [Preprocessing Hi-C](#step-1---preprocessing-hi-c)).
 - ```--resolution <INT>```, Resolution used in the above reconstrcutions.
 -	```--matrix <FILE>```, ICE normalized and expanded matrix in ```*.txt``` or ```*.npy``` format (```*_expanded_matrix.txt/npy```). Can also input a collapsed matrix here, see below for the ```--plot_collapsed_matrix``` option.
 - ```--output_prefix <STRING>```, Prefix of the output plot(s).
