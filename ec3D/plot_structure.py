@@ -345,7 +345,7 @@ if __name__ == '__main__':
 	Read annotations and map bins to gene names
 	"""
 	oncogenes = dict()
-	oncogene_fn = os.path.dirname(os.path.realpath(__file__)).replace("src", "data_repo") + "/"
+	oncogene_fn = oncogene_fn = os.path.dirname(os.path.realpath(__file__))+"/"+"data_repo/"
 	if args.download_gene and not args.gene_fn:
 		wget_command = "wget -P " + oncogene_fn
 		if args.ref == 'hg19' or args.ref == 'GRCh37':

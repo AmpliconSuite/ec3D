@@ -753,10 +753,11 @@ if __name__ == "__main__":
 	parser.add_argument("--reg", help = "Regularizer weight.", type = float, default = 0.05)
 	parser.add_argument("--init_alpha", help = "An initial guess of alpha, for initialization and MDS.", type = float, default = -3.0)
 	parser.add_argument("--num_repeats", help = "Number of repetitions with random initial structures.", type = int, default = 5)
+	parser.add_argument("--save_repeats", help = "Save the reconstructed structure in each repeat.", action = "store_true")
 	parser.add_argument("--max_rounds", help = "Maximum number of rounds for Poisson model.", type = int, default = 1000)
 	parser.add_argument("--max_iter_likelihood", help = "Maximum number of iterations for estimating the structure with L-BFGS.", type = int, default = 10000)
 	parser.add_argument("--max_iter_exponent", help = "Maximum number of iterations for estimating alpha/beta with L-BFGS.", type = int, default = 5000)
-	parser.add_argument("--structure", help = "Input the true structure, in *.txt or *.npy format, for calculating RMSD and PCC.")
+	parser.add_argument("--gt_structure", help = "Input the ground truth structure, in *.txt or *.npy format, for calculating RMSD and PCC.")
 	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
 	
 	start_time = time.time()
@@ -930,10 +931,10 @@ if __name__ == "__main__":
 		MDS_X1, MDS_X2 = mds(C, N, idx_nodup, idx_dup, dup_times, ini_c, alpha = args.init_alpha)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "MDS optimization completed.")
 		""" Disabled saving of MDS output
-		if args.structure == None:
+		if args.gt_structure == None:
 			np.savetxt(f'{args.output_prefix}_mds_{repeat}_3d.txt', MDS_X1[idx_map])
 		else:
-			original, reconstructed = np.loadtxt(args.structure), MDS_X1[idx_map]
+			original, reconstructed = np.loadtxt(args.gt_structure), MDS_X1[idx_map]
 			scale_factor = calculate_average_distance(original)
 			fr_pos_array = original / scale_factor
 			mds_pos_array = reconstructed / scale_factor
@@ -946,8 +947,9 @@ if __name__ == "__main__":
 		Run Poisson model with initial X and matrix returned from MDS
 		"""
 		try:
-			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.structure, alpha = args.init_alpha, reg_weight = args.reg)
-			np.savetxt(args.output_prefix + "_" + str(repeat) + '_coordinates.txt', PM_X)
+			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.gt_structure, alpha = args.init_alpha, reg_weight = args.reg)
+			if args.save_repeats:
+				np.savetxt(args.output_prefix + "_repeat" + str(repeat) + '_coordinates.txt', PM_X)
 			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
 			if PM_obj < PM_obj_min:
 				if np.isinf(PM_obj_min):
@@ -984,8 +986,8 @@ if __name__ == "__main__":
 	fp_w.write("beta\t%f\n" %best_beta)
 	fp_w.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the hyperparameters to %s." %output_params_fn)
-	if args.structure != None:
-		structure1, structure2 = PM_X_min, np.loadtxt(args.structure)
+	if args.gt_structure != None:
+		structure1, structure2 = PM_X_min, np.loadtxt(args.gt_structure)
 		rmsd, X1, X2, pcc = getTransformation(structure1, structure2) # structure1 is transformed
 		if args.save_npy:
 			output_coordinates_fn = args.output_prefix + "_aligned_coordinates.npy"

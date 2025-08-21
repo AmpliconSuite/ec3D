@@ -2,8 +2,7 @@ import os
 import argparse
 import subprocess
 
-
-if __name__ == "__main__":
+def main():
 	parser = argparse.ArgumentParser(description = "Compute the 3D coordinates from Hi-C.")
 	parser.add_argument("--cool", help = "Input whole genome Hi-C map, in *.cool format.", required = True)
 	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
@@ -74,7 +73,7 @@ if __name__ == "__main__":
 
 	si_command = "python3 %s/significant_interactions.py --matrix " %src_dir + args.output_prefix + "_expanded_matrix.txt"
 	if args.save_npy:
-		si_command += "python3 %s/significant_interactions.py --matrix " %src_dir + args.output_prefix + "_expanded_matrix.npy"
+		si_command = "python3 %s/significant_interactions.py --matrix " %src_dir + args.output_prefix + "_expanded_matrix.npy"
 	si_command += (" --output_prefix " + args.output_prefix)
 	print (si_command)
 	p = subprocess.Popen(si_command, shell = True)
@@ -106,4 +105,5 @@ if __name__ == "__main__":
 
 	print ("Finished.")
 
-
+if __name__ == "__main__":
+	main()
