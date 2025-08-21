@@ -11,51 +11,32 @@ from iced import normalization
 
 from util import *
 
-
-if __name__ == '__main__':
-
-	parser = argparse.ArgumentParser(description = "Extract Hi-C matrix correspond to ecDNA intervals.")
-	parser.add_argument("--cool", help = "Input whole genome Hi-C map, in *.cool format.", required = True)
-	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
-	parser.add_argument("--resolution", help = "Bin size.", type = int, required = True)
-	parser.add_argument("--output_prefix", help = "Prefix of the output files.", required = True)
-	parser.add_argument("--log_fn", help = "Name of log file.")
-	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
-	start_time = time.time()
-	args = parser.parse_args()
-	
+def extract_matrix(cool, ecdna_cycle, resolution, output_prefix, log_fn=None, save_npy=False):
 	"""
 	Set up logging
 	"""
-	log_fn = ""
-	if not args.log_fn:
-		log_fn = args.output_prefix + "_preprocessing.log"
-	else:
-		log_fn = args.log_fn
+	print("Extracting Hi-C submatrices of amplified regions ...")
+	start_time = time.time()
+	if not log_fn:
+		log_fn = output_prefix + "_preprocessing.log"
 	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
 						format = '[%(name)s:%(levelname)s]\t%(message)s')
 	logging.info("Python version " + sys.version + "\n")
-	commandstring = 'Command line: '
-	for arg in sys.argv:
-		if ' ' in arg:
-			commandstring += '"{}" '.format(arg)
-		else:
-			commandstring += "{} ".format(arg)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + commandstring)
+	function_param = f'extract_matrix(cool=\'{cool}\', ecdna_cycle=\'{ecdna_cycle}\', resolution={resolution}, output_prefix=\'{output_prefix}\', log_fn=\'{log_fn}\', save_npy={save_npy})'
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 
 	"""
 	Read in ecDNA cycle
 	"""
-	res = args.resolution
-	intrvls = read_ecDNA_cycle(args.ecdna_cycle, res)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "ecDNA involves %d amplified intervals with resolution %d." %(len(intrvls), res))
+	intrvls = read_ecDNA_cycle(ecdna_cycle, resolution)
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "ecDNA involves %d amplified intervals with resolution %d." %(len(intrvls), resolution))
 	for intrvl in intrvls:
 		logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "\tAmplified interval %s." %intrvl)
 
 	"""
 	Extract the expanded matrix from the input cool file
 	"""
-	clr = cooler.Cooler(args.cool)
+	clr = cooler.Cooler(cool)
 	chr_prefix = True
 	if '1' in clr.chromnames:
 		chr_prefix = False
@@ -63,17 +44,17 @@ if __name__ == '__main__':
 			# Bins with negative orientation already reordered
 	N = 0 # Total num bins
 	for intrvl in intrvls:
-		intrvl_size = (intrvl[2] - intrvl[1]) // res
+		intrvl_size = (intrvl[2] - intrvl[1]) // resolution
 		i = 0
 		if intrvl[3] == '+':
-			for b in range(intrvl[1], intrvl[2], res):
+			for b in range(intrvl[1], intrvl[2], resolution):
 				try:
 					row_labels[(intrvl[0], b)].append(N + i)
 				except:
 					row_labels[(intrvl[0], b)] = [N + i]
 				i += 1
 		else:
-			for b in range(intrvl[1], intrvl[2], res):
+			for b in range(intrvl[1], intrvl[2], resolution):
 				try:
 					row_labels[(intrvl[0], b)].append(N + intrvl_size - i - 1)
 				except:
@@ -100,9 +81,9 @@ if __name__ == '__main__':
 			mat_ = clr.matrix(balance = False, sparse = True).fetch(intrvl_string, intrvl_string_)
 			for i, j, v in zip(mat_.row, mat_.col, mat_.data):
         			D[s1 + i][s2 + j] = v
-			s2 += (int2[2] - int2[1]) // res
-		s1 += (int1[2] - int1[1]) // res
-	D = reorder_bins(D, intrvls, res) # D: N * N
+			s2 += (int2[2] - int2[1]) // resolution
+		s1 += (int1[2] - int1[1]) // resolution
+	D = reorder_bins(D, intrvls, resolution) # D: N * N
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Extracted the expanded matrix from the input cool file.")
 
 	"""
@@ -114,27 +95,42 @@ if __name__ == '__main__':
 	idx_dedup_sorted = [idx_dedup[i] for i in idx_dedup_argsort]
 	D_dedup = D[np.ix_(idx_dedup_sorted, idx_dedup_sorted)]
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Created the collapsed matrix from expanded matrix.")
-	if args.save_npy:
-		np.save(args.output_prefix + "_raw_collapsed_matrix.npy", D_dedup)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the raw collapsed matrix to %s." %(args.output_prefix + "_raw_collapsed_matrix.npy"))
+	if save_npy:
+		np.save(output_prefix + "_raw_collapsed_matrix.npy", D_dedup)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the raw collapsed matrix to %s." %(output_prefix + "_raw_collapsed_matrix.npy"))
 	else:
-		np.savetxt(args.output_prefix + "_raw_collapsed_matrix.txt", D_dedup)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the raw collapsed matrix to %s." %(args.output_prefix + "_raw_collapsed_matrix.txt"))
+		np.savetxt(output_prefix + "_raw_collapsed_matrix.txt", D_dedup)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the raw collapsed matrix to %s." %(output_prefix + "_raw_collapsed_matrix.txt"))
 	N_dedup = normalization.ICE_normalization(D_dedup, counts_profile = np.array([len(row_labels[bin]) for bin in bins])[idx_dedup_argsort])
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Normalized the collapsed matrix.")
-	if args.save_npy:
-		np.save(args.output_prefix + "_collapsed_matrix.npy", N_dedup)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the normalized collapsed matrix to %s." %(args.output_prefix + "_collapsed_matrix.npy"))
+	if save_npy:
+		np.save(output_prefix + "_collapsed_matrix.npy", N_dedup)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the normalized collapsed matrix to %s." %(output_prefix + "_collapsed_matrix.npy"))
 	else:
-		np.savetxt(args.output_prefix + "_collapsed_matrix.txt", N_dedup)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the normalized collapsed matrix to %s." %(args.output_prefix + "_collapsed_matrix.txt"))
-	fp = open(args.output_prefix + "_annotations.bed", 'w')
+		np.savetxt(output_prefix + "_collapsed_matrix.txt", N_dedup)
+		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the normalized collapsed matrix to %s." %(output_prefix + "_collapsed_matrix.txt"))
+	fp = open(output_prefix + "_annotations.bed", 'w')
 	for bin in bins:
-		fp.write("%s\t%d\t%d\t" %(bin[0], bin[1], bin[1] + res))
+		fp.write("%s\t%d\t%d\t" %(bin[0], bin[1], bin[1] + resolution))
 		for idx in row_labels[bin][:-1]:
 			fp.write("%d\t" %idx)
 		fp.write("%d\n" %row_labels[bin][-1])
 	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the annotation of bins to %s." %(args.output_prefix + "_annotations.bed"))
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the annotation of bins to %s." %(output_prefix + "_annotations.bed"))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+	print("Matrix extraction is done. The collapsed matrix is saved to %s." %(output_prefix + "_collapsed_matrix.npy" if save_npy else output_prefix + "_collapsed_matrix.txt"))
+
+if __name__ == '__main__':
+
+	parser = argparse.ArgumentParser(description = "Extract Hi-C matrix correspond to ecDNA intervals.")
+	parser.add_argument("--cool", help = "Input whole genome Hi-C map, in *.cool format.", required = True)
+	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
+	parser.add_argument("--resolution", help = "Bin size.", type = int, required = True)
+	parser.add_argument("--output_prefix", help = "Prefix of the output files.", required = True)
+	parser.add_argument("--log_fn", help = "Name of log file.")
+	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
+	
+	args = parser.parse_args()
+	extract_matrix(**vars(args))
+	
 

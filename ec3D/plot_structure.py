@@ -273,52 +273,32 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 	if save_png:
 		fig.write_image(output_prefix + "_ec3d.png", scale = 2.5)
 
-
-if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description = "Visualize the 3D structure of ecDNA.")
-	parser.add_argument("--structure", help = "The 3D structure of ecDNA, in *.txt or *.npy format", required = True)
-	parser.add_argument("--interactions", help = "Significant interactions to visualize.")
-	parser.add_argument("--clusters", help = "Clusters of significant interactions to visualize.")
-	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.")
-	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.")
-	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
-	parser.add_argument("--download_gene", help = "Download gene list from UCSC Genome Browser.", action = 'store_true')
-	parser.add_argument("--gene_fn", help = "Parse user provided gene list, in *.gff of *.gtf format.")
-	parser.add_argument("--noncyclic", help = "Noncyclic structure, will not connect the first and last nodes in 3D plot.", action = 'store_true')
-	parser.add_argument("--plot_axis", help = "Plot the three axes and grid.", action = 'store_true')
-	parser.add_argument("--save_png", help = "Save the structure plot additionally into a *.png file.", action = 'store_true')
-	parser.add_argument("--log_fn", help = "Name of log file.")
-	start_time = time.time()
-	args = parser.parse_args()
-
+def plot_3D_structure(structure, output_prefix, interactions = None, clusters = None,
+					  annotation = None, ref = 'hg38', download_gene = False, gene_fn = None, 
+					  noncyclic = False, plot_axis = False, save_png = False, log_fn = None):
 	"""
 	Set up logging
 	"""
-	log_fn = ""
-	if not args.log_fn:
-		log_fn = args.output_prefix + "_visualize_structure.log"
-	else:
-		log_fn = args.log_fn
+	print('Plotting 3D structure ...')
+	start_time = time.time()
+	if not log_fn:
+		log_fn = output_prefix + "_visualize_structure.log"
 	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
 						format = '[%(name)s:%(levelname)s]\t%(message)s')
 	logging.info("Python version " + sys.version + "\n")
-	commandstring = 'Command line: '
-	for arg in sys.argv:
-		if ' ' in arg:
-			commandstring += '"{}" '.format(arg)
-		else:
-			commandstring += "{} ".format(arg)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + commandstring)
-
+	function_param = f'plot_3D_structure(structure=\'{structure}\', output_prefix=\'{output_prefix}\', interactions=\'{interactions}\', ' + \
+		f'clusters=\'{clusters}\', annotation=\'{annotation}\', ref=\'{ref}\', download_gene={download_gene}, gene_fn=\'{gene_fn}\', ' + \
+		f'noncyclic={noncyclic}, plot_axis={plot_axis}, save_png={save_png}, log_fn=\'{log_fn}\')'
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 	"""
 	Read 3D coordinates
 	"""
 	X = np.array([])
-	if args.structure.endswith(".txt"):
-		X = np.loadtxt(args.structure)
+	if structure.endswith(".txt"):
+		X = np.loadtxt(structure)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded resolved 3D structure, in txt format.")
-	elif args.structure.endswith(".npy"):
-		X = np.load(args.structure)
+	elif structure.endswith(".npy"):
+		X = np.load(structure)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded resolved 3D structure, in npy format.")
 	else:
 		raise OSError("Input matrix must be in *.txt or *.npy format.")
@@ -327,12 +307,12 @@ if __name__ == '__main__':
 	Read significant interactions
 	"""
 	si = []
-	if args.interactions:
-		if not args.clusters:
+	if interactions:
+		if not clusters:
 			warnings.warn("Need clusters of significant interactions to visualize. Ignoring input significant interactions.")
 		else:
 			i = 0
-			fp = open(args.interactions, 'r')
+			fp = open(interactions, 'r')
 			for line in fp:
 				if i > 0:
 					si.append(line.strip().split('\t'))
@@ -346,13 +326,13 @@ if __name__ == '__main__':
 	"""
 	oncogenes = dict()
 	oncogene_fn = oncogene_fn = os.path.dirname(os.path.realpath(__file__))+"/"+"data_repo/"
-	if args.download_gene and not args.gene_fn:
+	if download_gene and not gene_fn:
 		wget_command = "wget -P " + oncogene_fn
-		if args.ref == 'hg19' or args.ref == 'GRCh37':
+		if ref == 'hg19' or ref == 'GRCh37':
 			wget_command += " https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/genes/hg19.ncbiRefSeq.gtf.gz"
-		elif args.ref == 'hg38' or args.ref == 'GRCh38':
+		elif ref == 'hg38' or ref == 'GRCh38':
 			wget_command += " https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/genes/hg38.ncbiRefSeq.gtf.gz"
-		elif args.ref == 'mm10' or args.ref == 'GRCm38':
+		elif ref == 'mm10' or ref == 'GRCm38':
 			wget_command += " https://hgdownload.soe.ucsc.edu/goldenPath/mm10/bigZips/genes/mm10.ncbiRefSeq.gtf.gz"
 		else:
 			print("Reference must be one from {hg19, hg38, GRCh38, mm10}.")
@@ -361,22 +341,22 @@ if __name__ == '__main__':
 		os.system(wget_command)
 		gunzip_command = ("gunzip " + oncogene_fn + "*.gz")
 		os.system(gunzip_command)
-		if args.ref == 'hg19' or args.ref == 'GRCh37':
+		if ref == 'hg19' or ref == 'GRCh37':
 			oncogene_fn += "hg19.ncbiRefSeq.gtf"
-		elif args.ref == 'hg38' or args.ref == 'GRCh38':
+		elif ref == 'hg38' or ref == 'GRCh38':
 			oncogene_fn += "hg38.ncbiRefSeq.gtf"
-		elif args.ref == 'mm10' or args.ref == 'GRCm38':
+		elif ref == 'mm10' or ref == 'GRCm38':
 			oncogene_fn += "mm10.ncbiRefSeq.gtf"
-	elif args.gene_fn:
-		if args.download_gene:
+	elif gene_fn:
+		if download_gene:
 			warnings.warn("Will use the specified gene list, downloading disabled.")	
-		oncogene_fn = args.gene_fn
+		oncogene_fn = gene_fn
 	else: # Use the oncogene files provided in data_repo
-		if args.ref == 'hg19' or args.ref == 'GRCh37':
+		if ref == 'hg19' or ref == 'GRCh37':
 			oncogene_fn += "AC_oncogene_set_GRCh37.gff"
-		elif args.ref == 'hg38' or args.ref == 'GRCh38' or not args.annotation:
+		elif ref == 'hg38' or ref == 'GRCh38' or not annotation:
 			oncogene_fn += "AC_oncogene_set_hg38.gff"
-		elif args.ref == 'mm10' or args.ref == 'GRCm38':
+		elif ref == 'mm10' or ref == 'GRCm38':
 			oncogene_fn += "AC_oncogene_set_mm10.gff"
 		else:
 			print("Reference must be one from {hg19, hg38, GRCh38, mm10}.")
@@ -412,8 +392,8 @@ if __name__ == '__main__':
 	bin2gene = dict()
 	unique_genes = set()
 	redundant_genes = set()
-	if args.annotation:
-		fp = open(args.annotation, 'r')
+	if annotation:
+		fp = open(annotation, 'r')
 		for line in fp:
 			s = line.strip().split('\t')
 			if res < 0:
@@ -442,7 +422,7 @@ if __name__ == '__main__':
 						"Bin number: %d; Gene name: %s; Strand: %s" %(bin_num, gene, bin2gene[bin_num][gene]))
 
 	breakpoints = [(-1, 0)]
-	if args.noncyclic:
+	if noncyclic:
 		breakpoints = []
 	if len(bins) > 0:
 		for i in range(len(bins) - 1):
@@ -468,12 +448,12 @@ if __name__ == '__main__':
 	
 	# Read in and visualize clusters
 	clusters = []
-	if args.clusters:
-		if not args.interactions:
+	if clusters:
+		if not interactions:
 			print("Significant interactions are required to visualize clusters.")
 			os.abort()
 		i = 0
-		fp = open(args.clusters, 'r')
+		fp = open(clusters, 'r')
 		for line in fp:
 			if i > 0:
 				clusters.append(line.strip().split('\t'))
@@ -485,15 +465,32 @@ if __name__ == '__main__':
 	noncyclic_ = False
 	plot_axis_ = False
 	save_png = False
-	if args.noncyclic:
+	if noncyclic:
 		noncyclic_ = True
-	if args.plot_axis:
+	if plot_axis:
 		plot_axis_ = True
-	if args.save_png:
+	if save_png:
 		save_png = True
-	plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, args.output_prefix, 
+	plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, output_prefix, 
 		noncyclic = noncyclic_, show_background = plot_axis_, save_png = save_png)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(args.output_prefix + "_ec3d.html"))
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(output_prefix + "_ec3d.html"))
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
-	    
+	print('3D structure visualization is done. The plot is saved to %s.' %(output_prefix + "_ec3d.html"))
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser(description = "Visualize the 3D structure of ecDNA.")
+	parser.add_argument("--structure", help = "The 3D structure of ecDNA, in *.txt or *.npy format", required = True)
+	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
+	parser.add_argument("--interactions", help = "Significant interactions to visualize.")
+	parser.add_argument("--clusters", help = "Clusters of significant interactions to visualize.")
+	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.")
+	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.", choices=['hg19', 'hg38', 'GRCh38', 'mm10'], default='hg38')
+	parser.add_argument("--download_gene", help = "Download gene list from UCSC Genome Browser.", action = 'store_true')
+	parser.add_argument("--gene_fn", help = "Parse user provided gene list, in *.gff of *.gtf format.")
+	parser.add_argument("--noncyclic", help = "Noncyclic structure, will not connect the first and last nodes in 3D plot.", action = 'store_true')
+	parser.add_argument("--plot_axis", help = "Plot the three axes and grid.", action = 'store_true')
+	parser.add_argument("--save_png", help = "Save the structure plot additionally into a *.png file.", action = 'store_true')
+	parser.add_argument("--log_fn", help = "Name of log file.")
 	
+	args = parser.parse_args()
+	plot_3D_structure(**vars(args))

@@ -744,60 +744,37 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 	return X_, results[1], alpha, beta
 
 
-if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description = "Compute the 3D coordinates from Hi-C.")
-	parser.add_argument("--matrix", help = "Input collapsed Hi-C matrix, in *.txt or *.npy format.", required = True)
-	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.", required = True)
-	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
-	parser.add_argument("--log_fn", help = "Name of log file.")
-	parser.add_argument("--reg", help = "Regularizer weight.", type = float, default = 0.05)
-	parser.add_argument("--init_alpha", help = "An initial guess of alpha, for initialization and MDS.", type = float, default = -3.0)
-	parser.add_argument("--num_repeats", help = "Number of repetitions with random initial structures.", type = int, default = 5)
-	parser.add_argument("--save_repeats", help = "Save the reconstructed structure in each repeat.", action = "store_true")
-	parser.add_argument("--max_rounds", help = "Maximum number of rounds for Poisson model.", type = int, default = 1000)
-	parser.add_argument("--max_iter_likelihood", help = "Maximum number of iterations for estimating the structure with L-BFGS.", type = int, default = 10000)
-	parser.add_argument("--max_iter_exponent", help = "Maximum number of iterations for estimating alpha/beta with L-BFGS.", type = int, default = 5000)
-	parser.add_argument("--gt_structure", help = "Input the ground truth structure, in *.txt or *.npy format, for calculating RMSD and PCC.")
-	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
-	
-	start_time = time.time()
-	args = parser.parse_args()
-
+def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg=0.05, init_alpha=-3.0, 
+							 num_repeats=5, save_repeats=False, max_rounds=1000, gt_structure=None, save_npy=False):
 	"""
 	Set up logging
 	"""
-	log_fn = ""
-	if not args.log_fn:
-		log_fn = args.output_prefix + "_optimization.log"
-	else:
-		log_fn = args.log_fn
+	print("Reconstructing 3D structure ...")
+	start_time = time.time()
+	if not log_fn:
+		log_fn = output_prefix + "_optimization.log"
 	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
 						format = '[%(name)s:%(levelname)s]\t%(message)s')
 	logging.info("Python version " + sys.version + "\n")
-	commandstring = 'Command line: '
-	for arg in sys.argv:
-		if ' ' in arg:
-			commandstring += '"{}" '.format(arg)
-		else:
-			commandstring += "{} ".format(arg)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + commandstring)
+	function_param = f'reconstruct_3D_structure(matrix=\'{matrix}\', annotation=\'{annotation}\', output_prefix=\'{output_prefix}\', log_fn=\'{log_fn}\', reg={reg}, init_alpha={init_alpha}, num_repeats={num_repeats}, save_repeats={save_repeats}, max_rounds={max_rounds}, gt_structure=\'{gt_structure}\', save_npy={save_npy})'
+	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 
 	"""
 	Parameter check
 	"""
-	if args.num_repeats < 1 or args.num_repeats > 100:
+	if num_repeats < 1 or num_repeats > 100:
 		raise OSError("Number of repetitions must stay in range [1, 100].")
-	if args.init_alpha >= 0:
+	if init_alpha >= 0:
 		raise OSError("Initial value of alpha must be less than 0.")
 
 	"""
 	Load ecDNA matrix
 	"""
 	C = np.array([])
-	if args.matrix.endswith(".txt"):
-		C = np.loadtxt(args.matrix)
-	elif args.matrix.endswith(".npy"):
-		C = np.load(args.matrix)
+	if matrix.endswith(".txt"):
+		C = np.loadtxt(matrix)
+	elif matrix.endswith(".npy"):
+		C = np.load(matrix)
 	else:
 		raise OSError("Input matrix must be in *.txt or *.npy format.")
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded normalized collapsed ecDNA matrix.")
@@ -808,7 +785,7 @@ if __name__ == "__main__":
 	N = -1 # Num bins in donor Hi-C
 	bins = []
 	row_labels = dict() # Map an interval of size RES to the index of all its copies
-	fp = open(args.annotation, 'r')
+	fp = open(annotation, 'r')
 	for line in fp:
 		s = line.strip().split()
 		bin = (s[0], int(s[1]))
@@ -866,12 +843,12 @@ if __name__ == "__main__":
 				total_int_ij = C[bi_nodup][bi_dup]
 				di = row_labels[bins[bi_nodup]][0]
 				d_ij = np.array([min(abs(di - dj), abs(min(di, dj) - max(di, dj) + N)) for dj in row_labels[bins[bi_dup]]], dtype = float)
-				sum_d = sum(d_ij ** (args.init_alpha))
+				sum_d = sum(d_ij ** (init_alpha))
 				for j_ in range(len(row_labels[bins[bi_dup]])):
 					try:
-						ini_c[ci][cj] = max(min(total_int_ij * 0.9, C_avg[int(d_ij[j_])]), total_int_ij / sum_d * (d_ij[j_] ** (args.init_alpha)))
+						ini_c[ci][cj] = max(min(total_int_ij * 0.9, C_avg[int(d_ij[j_])]), total_int_ij / sum_d * (d_ij[j_] ** (init_alpha)))
 					except:
-						ini_c[ci][cj] = max(min(total_int_ij * 0.9, min_c_avg), total_int_ij / sum_d * (d_ij[j_] ** (args.init_alpha)))
+						ini_c[ci][cj] = max(min(total_int_ij * 0.9, min_c_avg), total_int_ij / sum_d * (d_ij[j_] ** (init_alpha)))
 					cj += 1 
 			ci += 1
 		for bi1 in idx_dup:
@@ -886,16 +863,16 @@ if __name__ == "__main__":
 						di = row_labels[bins[bi1]][i_]
 						dj = row_labels[bins[bi2]][j_]
 						d_ij[i_][j_] = max(d_ij[i_][j_], min(abs(di - dj), abs(min(di, dj) - max(di, dj) + N)))
-				sum_d = (d_ij ** (args.init_alpha)).sum()
+				sum_d = (d_ij ** (init_alpha)).sum()
 				for i_ in range(ni1):
 					for j_ in range(ni2):
 						if i_ != j_:
 							try:
-								ini_c[ci + i_][cj + j_] = max(min(total_int_ij * 0.9, C_avg[int(d_ij[i_][j_])]), total_int_ij / sum_d * (d_ij[i_][j_] ** (args.init_alpha)))
+								ini_c[ci + i_][cj + j_] = max(min(total_int_ij * 0.9, C_avg[int(d_ij[i_][j_])]), total_int_ij / sum_d * (d_ij[i_][j_] ** (init_alpha)))
 							except:
-								ini_c[ci + i_][cj + j_] = max(min(total_int_ij * 0.9, min_c_avg), total_int_ij / sum_d * (d_ij[i_][j_] ** (args.init_alpha)))
+								ini_c[ci + i_][cj + j_] = max(min(total_int_ij * 0.9, min_c_avg), total_int_ij / sum_d * (d_ij[i_][j_] ** (init_alpha)))
 						else:
-							ini_c[ci + i_][cj + j_] = total_int_ij / sum_d * (d_ij[i_][j_] ** (args.init_alpha))
+							ini_c[ci + i_][cj + j_] = total_int_ij / sum_d * (d_ij[i_][j_] ** (init_alpha))
 				cj += ni2 
 			ci += ni1
 		#ini_c[ini_c < 1.0] = 1.0
@@ -922,34 +899,35 @@ if __name__ == "__main__":
 	PM_obj_min = np.inf
 	best_alpha = -3.0
 	best_beta = 1.0
-	while repeat < args.num_repeats + 1:
+	while repeat < num_repeats + 1:
+		print(f'Repeat {repeat}')
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repeat %d:" %repeat)
 
 		"""
 		Run MDS
 		"""
-		MDS_X1, MDS_X2 = mds(C, N, idx_nodup, idx_dup, dup_times, ini_c, alpha = args.init_alpha)
+		MDS_X1, MDS_X2 = mds(C, N, idx_nodup, idx_dup, dup_times, ini_c, alpha = init_alpha)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "MDS optimization completed.")
 		""" Disabled saving of MDS output
-		if args.gt_structure == None:
-			np.savetxt(f'{args.output_prefix}_mds_{repeat}_3d.txt', MDS_X1[idx_map])
+		if gt_structure == None:
+			np.savetxt(f'{output_prefix}_mds_{repeat}_3d.txt', MDS_X1[idx_map])
 		else:
-			original, reconstructed = np.loadtxt(args.gt_structure), MDS_X1[idx_map]
+			original, reconstructed = np.loadtxt(gt_structure), MDS_X1[idx_map]
 			scale_factor = calculate_average_distance(original)
 			fr_pos_array = original / scale_factor
 			mds_pos_array = reconstructed / scale_factor
 			fr_pos_array = remove_nan_col(fr_pos_array)
 			mds_pos_array = remove_nan_col(mds_pos_array)
 			rmsd, X1, X2, pcc = getTransformation(mds_pos_array,fr_pos_array)
-			np.savetxt(f'{args.output_prefix}_mds_{repeat}_3d.txt', X1)
+			np.savetxt(f'{output_prefix}_mds_{repeat}_3d.txt', X1)
 		"""
 		"""
 		Run Poisson model with initial X and matrix returned from MDS
 		"""
 		try:
-			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, args.max_rounds, start_time_ = start_time, gt_structure = args.gt_structure, alpha = args.init_alpha, reg_weight = args.reg)
-			if args.save_repeats:
-				np.savetxt(args.output_prefix + "_repeat" + str(repeat) + '_coordinates.txt', PM_X)
+			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, max_rounds, start_time_ = start_time, gt_structure = gt_structure, alpha = init_alpha, reg_weight = reg)
+			if save_repeats:
+				np.savetxt(output_prefix + "_repeat" + str(repeat) + '_coordinates.txt', PM_X)
 			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
 			if PM_obj < PM_obj_min:
 				if np.isinf(PM_obj_min):
@@ -973,28 +951,45 @@ if __name__ == "__main__":
 		Reorder the result matrix
 		"""
 		PM_X_min = PM_X_min[idx_map]
-	if args.save_npy:
-		output_coordinates_fn = args.output_prefix + "_coordinates.npy"
+	if save_npy:
+		output_coordinates_fn = output_prefix + "_coordinates.npy"
 		np.save(output_coordinates_fn, PM_X_min)
 	else:
-		output_coordinates_fn = args.output_prefix + "_coordinates.txt"
+		output_coordinates_fn = output_prefix + "_coordinates.txt"
 		np.savetxt(output_coordinates_fn, PM_X_min)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the resolved 3D structure to %s." %output_coordinates_fn)
-	output_params_fn = args.output_prefix + "_hyperparameters.txt"
+	output_params_fn = output_prefix + "_hyperparameters.txt"
 	fp_w = open(output_params_fn, 'w')
 	fp_w.write("alpha\t%f\n" %best_alpha)
 	fp_w.write("beta\t%f\n" %best_beta)
 	fp_w.close()
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the hyperparameters to %s." %output_params_fn)
-	if args.gt_structure != None:
-		structure1, structure2 = PM_X_min, np.loadtxt(args.gt_structure)
+	if gt_structure != None:
+		structure1, structure2 = PM_X_min, np.loadtxt(gt_structure)
 		rmsd, X1, X2, pcc = getTransformation(structure1, structure2) # structure1 is transformed
-		if args.save_npy:
-			output_coordinates_fn = args.output_prefix + "_aligned_coordinates.npy"
+		if save_npy:
+			output_coordinates_fn = output_prefix + "_aligned_coordinates.npy"
 			np.save(output_coordinates_fn, X1)
 		else:
-			output_coordinates_fn = args.output_prefix + "_aligned_coordinates.txt"
+			output_coordinates_fn = output_prefix + "_aligned_coordinates.txt"
 			np.savetxt(output_coordinates_fn, X1)
 		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the aligned 3D structure to %s." %output_coordinates_fn)
 	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+	print("3D structure reconstruction is done. The 3D structure is saved to %s." %output_coordinates_fn)
 
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description = "Compute the 3D coordinates from Hi-C.")
+	parser.add_argument("--matrix", help = "Input collapsed Hi-C matrix, in *.txt or *.npy format.", required = True)
+	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.", required = True)
+	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
+	parser.add_argument("--log_fn", help = "Name of log file.")
+	parser.add_argument("--reg", help = "Regularizer weight.", type = float, default = 0.05)
+	parser.add_argument("--init_alpha", help = "An initial guess of alpha, for initialization and MDS.", type = float, default = -3.0)
+	parser.add_argument("--num_repeats", help = "Number of repetitions with random initial structures.", type = int, default = 5)
+	parser.add_argument("--save_repeats", help = "Save the reconstructed structure in each repeat.", action = "store_true")
+	parser.add_argument("--max_rounds", help = "Maximum number of rounds for Poisson model.", type = int, default = 1000)
+	parser.add_argument("--gt_structure", help = "Input the ground truth structure, in *.txt or *.npy format, for calculating RMSD and PCC.")
+	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
+	
+	args = parser.parse_args()
+	reconstruct_3D_structure(**vars(args))
