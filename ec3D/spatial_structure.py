@@ -749,7 +749,7 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 	"""
 	Set up logging
 	"""
-	print("Reconstructing 3D structure ...")
+	print(f"Reconstructing 3D structure with {num_repeats} random seeds ...")
 	start_time = time.time()
 	if not log_fn:
 		log_fn = output_prefix + "_optimization.log"

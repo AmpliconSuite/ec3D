@@ -7,6 +7,8 @@ import argparse
 import cooler
 import logging
 import time
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 from iced import normalization
 
 from util import *

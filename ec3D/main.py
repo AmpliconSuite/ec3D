@@ -8,15 +8,17 @@ from expand_matrix import expand_matrix
 from significant_interactions import identify_significant_interactions
 from plot_interactions import plot_significant_interactions
 from plot_structure import plot_3D_structure
+from threadpoolctl import threadpool_limits
 
 def main():
 	parser = argparse.ArgumentParser(description = "Compute the 3D coordinates from Hi-C.")
 	parser.add_argument("--cool", help = "Input whole genome Hi-C map, in *.cool format.", required = True)
 	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
-	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
-	parser.add_argument("--resolution", help = "Bin size.", type = int, required = True)
-	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.", choices=['hg19', 'hg38', 'GRCh38', 'mm10'], default='hg38', required=False)
-	parser.add_argument("--save_npy", help = "Save matrices to npy format", action = "store_true")
+	parser.add_argument("--output_prefix", help = "Prefix of output files", required = True)
+	parser.add_argument("--resolution", help = "Bin siz.", type = int, required = True)
+	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.", choices=['hg19', 'hg38', 'GRCh38', 'mm10'], default='hg38')
+	parser.add_argument("--num_threads", help = "Maximal number of threads (default 8) that can be used by ec3D", type = int, default=8)
+	parser.add_argument("--save_npy", help = "Save matrices to .npy format.", action = "store_true")
 	args = parser.parse_args()
 	
 	# Extract Hi-C submatrices of amplified regions
@@ -25,7 +27,8 @@ def main():
 	# Reconstruct 3D structure
 	matrix_fn = args.output_prefix + ('_collapsed_matrix.npy' if args.save_npy else '_collapsed_matrix.txt')
 	annotation_fn = args.output_prefix + '_annotations.bed'
-	reconstruct_3D_structure(matrix_fn, annotation_fn, args.output_prefix, save_npy=args.save_npy)
+	with threadpool_limits(limits=args.num_threads, user_api='blas'):
+		reconstruct_3D_structure(matrix_fn, annotation_fn, args.output_prefix, save_npy=args.save_npy)
 
 	# Generate expanded matrix
 	dup_flag = False
