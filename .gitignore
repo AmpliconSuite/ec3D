@@ -1,1 +1,4 @@
-src/__pycache__
+ec3D/__pycache__
+dist
+*.egg-info
+build

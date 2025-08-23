@@ -5,7 +5,6 @@ import os
 import sys
 import time
 import argparse
-import logging
 import copy
 import numpy as np
 import networkx as nx
@@ -15,65 +14,43 @@ from sklearn.metrics import euclidean_distances
 from scipy.stats import poisson, nbinom
 from statsmodels.stats.multitest import multipletests
 
+from util import create_logger
 
-if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description = "Identify significant interactions from ecDNA.")
-	parser.add_argument("--matrix", help = "Input expanded Hi-C matrix, in *.txt or *.npy format.")
-	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
-	parser.add_argument("--pval_cutoff", help = "P-value cutoff as significant interactions.", type = float, default = 0.05)
-	parser.add_argument("--model", help = "Statistical model used to computet the P-values.", default = "global_nb",
-				choices = ['distance_ratio', 'local', 'global_poisson', 'global_nb'])
-	# Local: HiCCUPS
-	# Global Poisson/Negative Binomial: Significant interactions on each diagonal
-	# Distance ratio: Significant interactions wrt spatial distance/genomic distance ratio
-	parser.add_argument("--padding", help = "Pad expanded Hi-C matrix with certain values, for HiCCUPS interaction calling.", 
-				default = "average", choices = ['zero', 'average', 'cyclic'])
-	parser.add_argument("--genomic_distance_model", help = "Model of genomic distance between two bins.", default = "circular",
-				choices = ['circular', 'linear', 'reference'])
-	parser.add_argument("--significant_interactions", 
-				help = "Take significant interactions, in *.tsv format and perform Louvain Clustering.", nargs = '+')
-	parser.add_argument("--structure", help = "The 3D structure of ecDNA, in *.txt or *.npy format.")
-	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.")
-	parser.add_argument("--max_pooling", help = "Only keep significant interactions larger than their neighbors.", action = 'store_true')
-	parser.add_argument("--exclude", help = "Exclude significant interactions at given indices.", type = int, nargs = '+')
-	parser.add_argument("--log_fn", help = "Name of log file.")
-	start_time = time.time()
-	args = parser.parse_args()
-	if not args.matrix and not args.significant_interactions:
-		print("Please input either Hi-C matrix or significant interactions.")
-		os.abort()
+def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.05, model='global_nb', 
+									  padding='average', genomic_distance_model='circular', significant_interactions=None, 
+									  structure=None, annotation=None, max_pooling=False, exclude=None, log_fn=None):
+	if model not in ['distance_ratio', 'local', 'global_poisson', 'global_nb']:
+		raise ValueError(f'significant_interactions.py: The model {model} is not one of the choices: [\'distance_ratio\', \'local\', \'global_poisson\', \'global_nb\']')
+	if padding not in ['zero', 'average', 'cyclic']:
+		raise ValueError(f'significant_interactions.py: The padding {padding} is not one of the choices: [\'zero\', \'average\', \'cyclic\']')
+	if genomic_distance_model not in ['circular', 'linear', 'reference']:
+		raise ValueError(f'significant_interactions.py: The genomic_distance_model {genomic_distance_model} is not one of the choices: [\'circular\', \'linear\', \'reference\']')
+	if not matrix and not significant_interactions:
+		raise ValueError("significant_interactions.py: Please input either Hi-C matrix or significant interactions.")
 
 	"""
 	Set up logging
 	"""
-	log_fn = ""
-	if not args.log_fn:
-		log_fn = args.output_prefix + "_significant_interaction.log"
-	else:
-		log_fn = args.log_fn
-	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
-						format = '[%(name)s:%(levelname)s]\t%(message)s')
-	logging.info("Python version " + sys.version + "\n")
-	commandstring = 'Command line: '
-	for arg in sys.argv:
-		if ' ' in arg:
-			commandstring += '"{}" '.format(arg)
-		else:
-			commandstring += "{} ".format(arg)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + commandstring)
-
+	print("Identifying significant interactions ...")
+	start_time = time.time()
+	if not log_fn:
+		log_fn = output_prefix + "_significant_interaction.log"
+	logger = create_logger('significant_interactions.py', log_fn)
+	logger.info("Python version " + sys.version + "\n")
+	function_param = f'identify_significant_interactions(output_prefix=\'{output_prefix}\', matrix=\'{matrix}\', pval_cutoff={pval_cutoff}, model=\'{model}\', padding=\'{padding}\', genomic_distance_model=\'{genomic_distance_model}\', significant_interactions=\'{significant_interactions}\', structure=\'{structure}\', annotation=\'{annotation}\', max_pooling={max_pooling}, exclude={exclude}, log_fn=\'{log_fn}\')'
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 	"""
 	Load Hi-C matrix
 	"""
 	data = np.array([])
-	if args.matrix:
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Will identify significant interactions in expanded matrix.")
-		if args.matrix.endswith(".txt"):
-			data = np.loadtxt(args.matrix)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in txt format.")
-		elif args.matrix.endswith(".npy"):
-			data = np.load(args.matrix)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in npy format.")
+	if matrix:
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Will identify significant interactions in expanded matrix.")
+		if matrix.endswith(".txt"):
+			data = np.loadtxt(matrix)
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in txt format.")
+		elif matrix.endswith(".npy"):
+			data = np.load(matrix)
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in npy format.")
 		else:
 			raise OSError("Input matrix must be in *.txt or *.npy format.")
 
@@ -82,8 +59,8 @@ if __name__ == "__main__":
 	"""
 	bins = dict()
 	res = -1
-	if args.annotation:
-		fp = open(args.annotation, 'r')
+	if annotation:
+		fp = open(annotation, 'r')
 		for line in fp:
 			s = line.strip().split('\t')
 			if res < 0:
@@ -91,15 +68,15 @@ if __name__ == "__main__":
 			for i in range(3, len(s)):
 				bins[int(s[i])] = [s[0], int(s[1]) // res]
 		fp.close()
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
 	
 	"""
 	Estimating mu and alpha at each genomic distance
 	"""
 	N = data.shape[0]
 	params_est = dict()
-	if args.matrix and (args.model == 'global_poisson' or args.model == 'global_nb'):
-		if args.genomic_distance_model == 'circular':
+	if matrix and (model == 'global_poisson' or model == 'global_nb'):
+		if genomic_distance_model == 'circular':
 			for i in range(N):
 				for j in range(i + 1, N):
 					d = min(abs(i - j), N - abs(i - j))
@@ -111,7 +88,7 @@ if __name__ == "__main__":
 				q25, q75 = np.percentile(params_est[d], [25 ,75])
 				params_est[d] = [c for c in params_est[d] if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
 				params_est[d] = [np.mean(params_est[d]), np.var(params_est[d])]
-		elif args.genomic_distance_model == 'linear':
+		elif genomic_distance_model == 'linear':
 			ld, d = 1, 1
 			interaction_freqs = []
 			for i in range(1, N): # Equal occupancy binning
@@ -135,9 +112,8 @@ if __name__ == "__main__":
 				for d_ in range(ld, N):
 					params_est[d_] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
 		else:
-			if not args.annotation:
-				print("Annotation file is required.")
-				os.abort()
+			if not annotation:
+				raise ValueError("Annotation file is required.")
 			for i in range(N):
 				for j in range(i + 1, N):
 					d = N
@@ -172,22 +148,21 @@ if __name__ == "__main__":
 				interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
 				for d in partition:
 					params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
-	elif args.matrix and args.model == 'distance_ratio':
-		if not (args.structure and args.annotation):
-			print("3D structure and annotation files are required to compute the distance ratio.")
-			os.abort()
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
+	elif matrix and model == 'distance_ratio':
+		if not (structure and annotation):
+			raise ValueError("3D structure and annotation files are required to compute the distance ratio.")
 		X = np.array([])
-		if args.structure.endswith(".txt"):
-			X = np.loadtxt(args.structure)
-		elif args.structure.endswith(".npy"):
-			X = np.load(args.structure)
+		if structure.endswith(".txt"):
+			X = np.loadtxt(structure)
+		elif structure.endswith(".npy"):
+			X = np.load(structure)
 		else:
 			raise OSError("Input matrix must be in *.txt or *.npy format.")
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
 
 		dis = euclidean_distances(X)
-		if args.genomic_distance_model == 'circular':
+		if genomic_distance_model == 'circular':
 			for i in range(N):
 				for j in range(i + 1, N):
 					d = min(abs(i - j), N - abs(i - j))
@@ -233,27 +208,27 @@ if __name__ == "__main__":
 				interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
 				for d in partition:
 					params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
 	
 	"""
 	Compute p-values
 	"""
 	si = dict()
-	if args.matrix and args.model == 'local':
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Padding ecDNA Hi-C matrix of size %d * %d." %(N, N))
+	if matrix and model == 'local':
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Padding ecDNA Hi-C matrix of size %d * %d." %(N, N))
 		pl = 10 # pad matrices with 10 pixels on each side
-		if args.padding == 'zero' or args.padding == 'cyclic':
+		if padding == 'zero' or padding == 'cyclic':
 			data = np.pad(data, ((pl, pl), (pl, pl)))
 		else:
 			data = np.pad(data, ((pl, pl), (pl, pl)), constant_values = np.average(data))
-		if args.padding == 'cyclic':
+		if padding == 'cyclic':
 			for i in range(pl):
 				for j in range(pl, pl + N):
 					data[j][i] = data[j][N + i]
 					data[j][N + pl + i] = data[j][pl + i]
 					data[i][j] = data[N + i][j]
 					data[N + pl + i][j] = data[pl + i][j]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Matrix size after padding: %d * %d." %(data.shape[0], data.shape[1]))
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Matrix size after padding: %d * %d." %(data.shape[0], data.shape[1]))
 		
 		for (p, w) in [(1, 3), (2, 5), (4, 7)]:
 			pvals_h, pvals_v, pvals_ll, pvals_donut = [], [], [], []
@@ -296,35 +271,35 @@ if __name__ == "__main__":
 					pvals_h.append(pval_h)
 					pvals_ll.append(pval_ll)
 					pvals_donut.append(pval_donut)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions with p = %d and w = %d." %(p, w))
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions with p = %d and w = %d." %(p, w))
 			
 			qvals_v = multipletests(pvals_v, alpha = 0.05, method = 'fdr_bh')[1]
 			qvals_h = multipletests(pvals_h, alpha = 0.05, method = 'fdr_bh')[1]
 			qvals_ll = multipletests(pvals_ll, alpha = 0.05, method = 'fdr_bh')[1]
 			qvals_donut = multipletests(pvals_donut, alpha = 0.05, method = 'fdr_bh')[1]
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
 
 			qi = 0
 			for i in range(pl, N + pl):
 				for j in range(i + w + 1, N + pl):
 					pval = max(pvals_v[qi], pvals_h[qi], pvals_ll[qi], pvals_donut[qi])
 					qval = max(qvals_v[qi], qvals_h[qi], qvals_ll[qi], qvals_donut[qi])
-					if qval <= args.pval_cutoff:
+					if qval <= pval_cutoff:
 						try:
 							si[(i - pl, j - pl)][0] = min(pval, si[(i - pl, j - pl)][0])
 							si[(i - pl, j - pl)][1] = min(qval, si[(i - pl, j - pl)][1])
 						except:
 							si[(i - pl, j - pl)] = [data[i][j], pval, qval]
 					qi += 1
-	elif args.matrix and (args.model == 'global_poisson' or args.model == 'global_nb'):
+	elif matrix and (model == 'global_poisson' or model == 'global_nb'):
 		"""
-		if not args.matrix:
+		if not matrix:
 			print("Please input the Hi-C matrix, in *.txt or *.npy format.")
-			os.abort()
+			exit(1)
 		"""
 		pvals = []
-		if args.model == "global_poisson":
-			if args.genomic_distance_model == 'circular':
+		if model == "global_poisson":
+			if genomic_distance_model == 'circular':
 				for i in range(N):
 					for j in range(i + 1, N):
 						d = min(j - i, N - j + i)
@@ -333,7 +308,7 @@ if __name__ == "__main__":
 						if np.isnan(pval):
 							pval = 1.0
 						pvals.append(pval)
-			elif args.genomic_distance_model == 'linear':
+			elif genomic_distance_model == 'linear':
 				for i in range(N):
 					for j in range(i + 1, N):
 						d = j - i
@@ -356,7 +331,7 @@ if __name__ == "__main__":
 							pval = 1.0
 						pvals.append(pval)
 		else:
-			if args.genomic_distance_model == 'circular':
+			if genomic_distance_model == 'circular':
 				for i in range(N):
 					for j in range(i + 1, N):
 						d = min(j - i, N - j + i)
@@ -368,7 +343,7 @@ if __name__ == "__main__":
 						if np.isnan(pval):
 							pval = 1.0
 						pvals.append(pval)
-			elif args.genomic_distance_model == 'linear':
+			elif genomic_distance_model == 'linear':
 				for i in range(N):
 					for j in range(i + 1, N):
 						d = j - i
@@ -396,19 +371,19 @@ if __name__ == "__main__":
 						if np.isnan(pval):
 							pval = 1.0
 						pvals.append(pval)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
 		qvals = multipletests(pvals, alpha = 0.05, method = 'fdr_bh')[1]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
 		qi = 0
 		for i in range(N):
 			for j in range(i + 1, N):
-				if qvals[qi] <= args.pval_cutoff:
+				if qvals[qi] <= pval_cutoff:
 					si[(i, j)] = [data[i][j], pvals[qi], qvals[qi]]
 				qi += 1
-	elif args.matrix:
-		assert (args.model == 'distance_ratio')
+	elif matrix:
+		assert (model == 'distance_ratio')
 		pvals = []
-		if args.genomic_distance_model == 'circular':
+		if genomic_distance_model == 'circular':
 			for i in range(N):
 				for j in range(i + 1, N):
 					d = min(abs(i - j), N - abs(i - j))
@@ -438,24 +413,24 @@ if __name__ == "__main__":
 					if np.isnan(pval):
 						pval = 1.0
 					pvals.append(pval)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
 		qvals = multipletests(pvals, alpha = 0.05, method = 'fdr_bh')[1]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
 		qi = 0
 		for i in range(N):
 			for j in range(i + 1, N):
-				if qvals[qi] <= args.pval_cutoff:
+				if qvals[qi] <= pval_cutoff:
 					si[(i, j)] = [data[i][j], pvals[qi], qvals[qi]]
 				qi += 1	
 
 	"""
 	Filtering out interactions; compute connected components
 	"""
-	if args.matrix and args.significant_interactions:
-		logging.warning("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+	if matrix and significant_interactions:
+		logger.warning("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"Ignoring input significant interactions, use those called in the input matrix.")
-	elif args.significant_interactions:
-		for si_fn in args.significant_interactions:
+	elif significant_interactions:
+		for si_fn in significant_interactions:
 			fp = open(si_fn, 'r')
 			for line in fp:
 				s = line.strip().split('\t')
@@ -467,12 +442,12 @@ if __name__ == "__main__":
 					si[(min(i, j), max(i, j))] = [float(s[2]), float(s[3]), float(s[4])]
 			fp.close()
 			print (len(si))
-	if args.exclude:
+	if exclude:
 		del_list = []
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"There are %d significant interactions before filtering." %len(si))
-		for i in args.exclude:
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		for i in exclude:
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"Filtering out significant interactions involving bin %d." %i)
 			for (i_, j_) in si.keys():
 				if i_ == i or j_ == i:
@@ -480,7 +455,7 @@ if __name__ == "__main__":
 		for (i, j) in del_list:
 			if (i, j) in si:
 				del si[(i, j)]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"%d significant interactions remain after filtering." %len(si))
 	"""
 	si_cc = {(i, j): -1 for (i, j) in si.keys()}
@@ -501,12 +476,12 @@ if __name__ == "__main__":
 				if (i_, j_ + 1) in si and si_cc[(i_, j_ + 1)] == -1 and (i_, j_ + 1) not in L:
 					L.append((i_, j_ + 1))
 			ccid += 1
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"The %d significant interactions form %d connected components." %(len(si), ccid))
 	"""
 	del_list = set([])
-	if args.max_pooling:
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+	if max_pooling:
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"There are %d significant interactions before max pooling." %len(si))
 		for (i, j) in si.keys():
 			if (i + 1, j) in si:
@@ -519,14 +494,14 @@ if __name__ == "__main__":
 					del_list.add((i, j + 1))
 				if si[(i, j)][0] < si[(i, j + 1)][0]:
 					del_list.add((i, j))
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"%d significant interactions remain after max pooling." %(len(si) - len(del_list)))
 	
 	"""
 	Output the significant interactions to tsv file
 	"""
 	G = nx.Graph()
-	tsv_fn = args.output_prefix + "_significant_interactions.tsv"
+	tsv_fn = output_prefix + "_significant_interactions.tsv"
 	fp = open(tsv_fn, 'w')
 	fp.write('bin1\tbin2\tinteraction\tp_value\tq_value\n')
 	for (i, j) in si.keys():
@@ -535,13 +510,13 @@ if __name__ == "__main__":
 		if j not in G:
 			G.add_node(j)
 		G.add_edge(i, j)
-		if args.max_pooling:
+		if max_pooling:
 			if (i, j) not in del_list:
 				fp.write("%d\t%d\t%f\t%f\t%f\n" %(i, j, si[(i, j)][0], si[(i, j)][1], si[(i, j)][2]))
 		else:
 			fp.write("%d\t%d\t%f\t%f\t%f\n" %(i, j, si[(i, j)][0], si[(i, j)][1], si[(i, j)][2]))
 	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote significant interactions to %s." %tsv_fn)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote significant interactions to %s." %tsv_fn)
 
 	"""
 	Cluster significant interactions
@@ -562,12 +537,12 @@ if __name__ == "__main__":
 		if num_clusters[nc][0] > num_clusters[best_nc][0]:
 			best_nc = nc
 	best_partition = num_clusters[best_nc][1]
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clustered bins involved in significant interactions.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clustered bins involved in significant interactions.")
 
 	modularity_score = community.modularity(best_partition, G)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Modularity score of the partition: %f." %modularity_score)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Modularity score of the partition: %f." %modularity_score)
     
-	cluster_fn = args.output_prefix + "_clustered_bins.tsv"
+	cluster_fn = output_prefix + "_clustered_bins.tsv"
 	fp = open(cluster_fn, 'w')
 	fp.write('bin\tcluster\n')
 	remaining_nodes = set([])
@@ -577,14 +552,38 @@ if __name__ == "__main__":
 				remaining_nodes.add(i)
 				remaining_nodes.add(j)
 	for node in sorted(best_partition.keys()):
-		if args.max_pooling:
+		if max_pooling:
 			if node in remaining_nodes:
 				fp.write("%d\t%d\n" %(node, best_partition[node]))
 		else:
 			fp.write("%d\t%d\n" %(node, best_partition[node]))
 	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "%d Clusters were detected with Louvain Clustering." %len(set(best_partition.values())))
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote Clustered bins to %s." %cluster_fn)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "%d Clusters were detected with Louvain Clustering." %len(set(best_partition.values())))
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote Clustered bins to %s." %cluster_fn)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+	print('Significant interactions identification is done. Significant interactions are written to %s.' %tsv_fn)
 
-  
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description = "Identify significant interactions from ecDNA.")
+	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
+	parser.add_argument("--matrix", help = "Input expanded Hi-C matrix, in *.txt or *.npy format.")
+	parser.add_argument("--pval_cutoff", help = "P-value cutoff as significant interactions.", type = float, default = 0.05)
+	parser.add_argument("--model", help = "Statistical model used to computet the P-values.", default = "global_nb",
+				choices = ['distance_ratio', 'local', 'global_poisson', 'global_nb'])
+	# Local: HiCCUPS
+	# Global Poisson/Negative Binomial: Significant interactions on each diagonal
+	# Distance ratio: Significant interactions wrt spatial distance/genomic distance ratio
+	parser.add_argument("--padding", help = "Pad expanded Hi-C matrix with certain values, for HiCCUPS interaction calling.", 
+				default = "average", choices = ['zero', 'average', 'cyclic'])
+	parser.add_argument("--genomic_distance_model", help = "Model of genomic distance between two bins.", default = "circular",
+				choices = ['circular', 'linear', 'reference'])
+	parser.add_argument("--significant_interactions", 
+				help = "Take significant interactions, in *.tsv format and perform Louvain Clustering.", nargs = '+')
+	parser.add_argument("--structure", help = "The 3D structure of ecDNA, in *.txt or *.npy format.")
+	parser.add_argument("--annotation", help = "Annotation of bins in the input matrix.")
+	parser.add_argument("--max_pooling", help = "Only keep significant interactions larger than their neighbors.", action = 'store_true')
+	parser.add_argument("--exclude", help = "Exclude significant interactions at given indices.", type = int, nargs = '+')
+	parser.add_argument("--log_fn", help = "Name of log file.")
+	
+	args = parser.parse_args()
+	identify_significant_interactions(**vars(args))
