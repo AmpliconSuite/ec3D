@@ -1,28 +1,35 @@
-import os
 import argparse
-import subprocess
+import hic2cool
 import numpy as np
+from threadpoolctl import threadpool_limits
+
 from extract_matrix import extract_matrix
 from spatial_structure import reconstruct_3D_structure
 from expand_matrix import expand_matrix
 from significant_interactions import identify_significant_interactions
 from plot_interactions import plot_significant_interactions
 from plot_structure import plot_3D_structure
-from threadpoolctl import threadpool_limits
 
 def main():
 	parser = argparse.ArgumentParser(description = "Compute the 3D coordinates from Hi-C.")
-	parser.add_argument("--cool", help = "Input whole genome Hi-C map, in *.cool format.", required = True)
+	parser.add_argument("--hic", help = "Input whole genome Hi-C map, in *.cool or *.hic format.", required = True)
 	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
 	parser.add_argument("--output_prefix", help = "Prefix of output files", required = True)
 	parser.add_argument("--resolution", help = "Bin siz.", type = int, required = True)
 	parser.add_argument("--ref", help = "One of {hg19, hg38, GRCh38, mm10}.", choices=['hg19', 'hg38', 'GRCh38', 'mm10'], default='hg38')
 	parser.add_argument("--num_threads", help = "Maximal number of threads (default 8) that can be used by ec3D", type = int, default=8)
-	parser.add_argument("--save_npy", help = "Save matrices to .npy format.", action = "store_true")
+	parser.add_argument("--save_npy", help = "Save matrices to *.npy format.", action = "store_true")
 	args = parser.parse_args()
 	
 	# Extract Hi-C submatrices of amplified regions
-	extract_matrix(args.cool, args.ecdna_cycle, args.resolution, args.output_prefix, save_npy=args.save_npy)
+	hic_fn = args.hic
+	if not (hic_fn.endswith('.cool') or hic_fn.endswith('.hic') or '.mcool' in hic_fn):
+		raise ValueError("The input Hi-C file must be in .cool or .hic format.")
+	elif hic_fn.endswith('.hic'):
+		new_hic_fn = hic_fn.split('/')[-1][:-4] + '.cool'
+		hic2cool.hic2cool_convert(hic_fn, new_hic_fn, args.resolution)
+		hic_fn = new_hic_fn
+	extract_matrix(hic_fn, args.ecdna_cycle, args.resolution, args.output_prefix, save_npy=args.save_npy)
 
 	# Reconstruct 3D structure
 	matrix_fn = args.output_prefix + ('_collapsed_matrix.npy' if args.save_npy else '_collapsed_matrix.txt')

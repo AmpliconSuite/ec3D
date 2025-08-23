@@ -5,7 +5,6 @@ import os
 import sys
 import time
 import argparse
-import logging
 import copy
 import numpy as np
 import networkx as nx
@@ -15,21 +14,19 @@ from sklearn.metrics import euclidean_distances
 from scipy.stats import poisson, nbinom
 from statsmodels.stats.multitest import multipletests
 
+from util import create_logger
+
 def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.05, model='global_nb', 
 									  padding='average', genomic_distance_model='circular', significant_interactions=None, 
 									  structure=None, annotation=None, max_pooling=False, exclude=None, log_fn=None):
 	if model not in ['distance_ratio', 'local', 'global_poisson', 'global_nb']:
-		print(f'significant_interactions.py: The model {model} is not one of the choices: [\'distance_ratio\', \'local\', \'global_poisson\', \'global_nb\']')
-		exit(1)
+		raise ValueError(f'significant_interactions.py: The model {model} is not one of the choices: [\'distance_ratio\', \'local\', \'global_poisson\', \'global_nb\']')
 	if padding not in ['zero', 'average', 'cyclic']:
-		print(f'significant_interactions.py: The padding {padding} is not one of the choices: [\'zero\', \'average\', \'cyclic\']')
-		exit(1)
+		raise ValueError(f'significant_interactions.py: The padding {padding} is not one of the choices: [\'zero\', \'average\', \'cyclic\']')
 	if genomic_distance_model not in ['circular', 'linear', 'reference']:
-		print(f'significant_interactions.py: The genomic_distance_model {genomic_distance_model} is not one of the choices: [\'circular\', \'linear\', \'reference\']')
-		exit(1)
+		raise ValueError(f'significant_interactions.py: The genomic_distance_model {genomic_distance_model} is not one of the choices: [\'circular\', \'linear\', \'reference\']')
 	if not matrix and not significant_interactions:
-		print("significant_interactions.py: Please input either Hi-C matrix or significant interactions.")
-		exit(1)
+		raise ValueError("significant_interactions.py: Please input either Hi-C matrix or significant interactions.")
 
 	"""
 	Set up logging
@@ -38,23 +35,22 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 	start_time = time.time()
 	if not log_fn:
 		log_fn = output_prefix + "_significant_interaction.log"
-	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
-						format = '[%(name)s:%(levelname)s]\t%(message)s')
-	logging.info("Python version " + sys.version + "\n")
+	logger = create_logger('significant_interactions.py', log_fn)
+	logger.info("Python version " + sys.version + "\n")
 	function_param = f'identify_significant_interactions(output_prefix=\'{output_prefix}\', matrix=\'{matrix}\', pval_cutoff={pval_cutoff}, model=\'{model}\', padding=\'{padding}\', genomic_distance_model=\'{genomic_distance_model}\', significant_interactions=\'{significant_interactions}\', structure=\'{structure}\', annotation=\'{annotation}\', max_pooling={max_pooling}, exclude={exclude}, log_fn=\'{log_fn}\')'
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 	"""
 	Load Hi-C matrix
 	"""
 	data = np.array([])
 	if matrix:
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Will identify significant interactions in expanded matrix.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Will identify significant interactions in expanded matrix.")
 		if matrix.endswith(".txt"):
 			data = np.loadtxt(matrix)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in txt format.")
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in txt format.")
 		elif matrix.endswith(".npy"):
 			data = np.load(matrix)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in npy format.")
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in npy format.")
 		else:
 			raise OSError("Input matrix must be in *.txt or *.npy format.")
 
@@ -72,7 +68,7 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 			for i in range(3, len(s)):
 				bins[int(s[i])] = [s[0], int(s[1]) // res]
 		fp.close()
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
 	
 	"""
 	Estimating mu and alpha at each genomic distance
@@ -117,8 +113,7 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 					params_est[d_] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
 		else:
 			if not annotation:
-				print("Annotation file is required.")
-				exit(1)
+				raise ValueError("Annotation file is required.")
 			for i in range(N):
 				for j in range(i + 1, N):
 					d = N
@@ -153,11 +148,10 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 				interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
 				for d in partition:
 					params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
 	elif matrix and model == 'distance_ratio':
 		if not (structure and annotation):
-			print("3D structure and annotation files are required to compute the distance ratio.")
-			exit(1)
+			raise ValueError("3D structure and annotation files are required to compute the distance ratio.")
 		X = np.array([])
 		if structure.endswith(".txt"):
 			X = np.loadtxt(structure)
@@ -165,7 +159,7 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 			X = np.load(structure)
 		else:
 			raise OSError("Input matrix must be in *.txt or *.npy format.")
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
 
 		dis = euclidean_distances(X)
 		if genomic_distance_model == 'circular':
@@ -214,14 +208,14 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 				interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
 				for d in partition:
 					params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
 	
 	"""
 	Compute p-values
 	"""
 	si = dict()
 	if matrix and model == 'local':
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Padding ecDNA Hi-C matrix of size %d * %d." %(N, N))
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Padding ecDNA Hi-C matrix of size %d * %d." %(N, N))
 		pl = 10 # pad matrices with 10 pixels on each side
 		if padding == 'zero' or padding == 'cyclic':
 			data = np.pad(data, ((pl, pl), (pl, pl)))
@@ -234,7 +228,7 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 					data[j][N + pl + i] = data[j][pl + i]
 					data[i][j] = data[N + i][j]
 					data[N + pl + i][j] = data[pl + i][j]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Matrix size after padding: %d * %d." %(data.shape[0], data.shape[1]))
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Matrix size after padding: %d * %d." %(data.shape[0], data.shape[1]))
 		
 		for (p, w) in [(1, 3), (2, 5), (4, 7)]:
 			pvals_h, pvals_v, pvals_ll, pvals_donut = [], [], [], []
@@ -277,13 +271,13 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 					pvals_h.append(pval_h)
 					pvals_ll.append(pval_ll)
 					pvals_donut.append(pval_donut)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions with p = %d and w = %d." %(p, w))
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions with p = %d and w = %d." %(p, w))
 			
 			qvals_v = multipletests(pvals_v, alpha = 0.05, method = 'fdr_bh')[1]
 			qvals_h = multipletests(pvals_h, alpha = 0.05, method = 'fdr_bh')[1]
 			qvals_ll = multipletests(pvals_ll, alpha = 0.05, method = 'fdr_bh')[1]
 			qvals_donut = multipletests(pvals_donut, alpha = 0.05, method = 'fdr_bh')[1]
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
 
 			qi = 0
 			for i in range(pl, N + pl):
@@ -377,9 +371,9 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 						if np.isnan(pval):
 							pval = 1.0
 						pvals.append(pval)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
 		qvals = multipletests(pvals, alpha = 0.05, method = 'fdr_bh')[1]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
 		qi = 0
 		for i in range(N):
 			for j in range(i + 1, N):
@@ -419,9 +413,9 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 					if np.isnan(pval):
 						pval = 1.0
 					pvals.append(pval)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Computed the P-values for all interactions.")
 		qvals = multipletests(pvals, alpha = 0.05, method = 'fdr_bh')[1]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Corrected the P-values with Benjamini-Hochberg procedure.")
 		qi = 0
 		for i in range(N):
 			for j in range(i + 1, N):
@@ -433,7 +427,7 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 	Filtering out interactions; compute connected components
 	"""
 	if matrix and significant_interactions:
-		logging.warning("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		logger.warning("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"Ignoring input significant interactions, use those called in the input matrix.")
 	elif significant_interactions:
 		for si_fn in significant_interactions:
@@ -450,10 +444,10 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 			print (len(si))
 	if exclude:
 		del_list = []
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"There are %d significant interactions before filtering." %len(si))
 		for i in exclude:
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"Filtering out significant interactions involving bin %d." %i)
 			for (i_, j_) in si.keys():
 				if i_ == i or j_ == i:
@@ -461,7 +455,7 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 		for (i, j) in del_list:
 			if (i, j) in si:
 				del si[(i, j)]
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"%d significant interactions remain after filtering." %len(si))
 	"""
 	si_cc = {(i, j): -1 for (i, j) in si.keys()}
@@ -482,12 +476,12 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 				if (i_, j_ + 1) in si and si_cc[(i_, j_ + 1)] == -1 and (i_, j_ + 1) not in L:
 					L.append((i_, j_ + 1))
 			ccid += 1
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"The %d significant interactions form %d connected components." %(len(si), ccid))
 	"""
 	del_list = set([])
 	if max_pooling:
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"There are %d significant interactions before max pooling." %len(si))
 		for (i, j) in si.keys():
 			if (i + 1, j) in si:
@@ -500,7 +494,7 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 					del_list.add((i, j + 1))
 				if si[(i, j)][0] < si[(i, j + 1)][0]:
 					del_list.add((i, j))
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 				"%d significant interactions remain after max pooling." %(len(si) - len(del_list)))
 	
 	"""
@@ -522,7 +516,7 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 		else:
 			fp.write("%d\t%d\t%f\t%f\t%f\n" %(i, j, si[(i, j)][0], si[(i, j)][1], si[(i, j)][2]))
 	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote significant interactions to %s." %tsv_fn)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote significant interactions to %s." %tsv_fn)
 
 	"""
 	Cluster significant interactions
@@ -543,10 +537,10 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 		if num_clusters[nc][0] > num_clusters[best_nc][0]:
 			best_nc = nc
 	best_partition = num_clusters[best_nc][1]
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clustered bins involved in significant interactions.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clustered bins involved in significant interactions.")
 
 	modularity_score = community.modularity(best_partition, G)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Modularity score of the partition: %f." %modularity_score)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Modularity score of the partition: %f." %modularity_score)
     
 	cluster_fn = output_prefix + "_clustered_bins.tsv"
 	fp = open(cluster_fn, 'w')
@@ -564,9 +558,9 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 		else:
 			fp.write("%d\t%d\n" %(node, best_partition[node]))
 	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "%d Clusters were detected with Louvain Clustering." %len(set(best_partition.values())))
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote Clustered bins to %s." %cluster_fn)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "%d Clusters were detected with Louvain Clustering." %len(set(best_partition.values())))
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote Clustered bins to %s." %cluster_fn)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	print('Significant interactions identification is done. Significant interactions are written to %s.' %tsv_fn)
 
 if __name__ == "__main__":

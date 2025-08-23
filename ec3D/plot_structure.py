@@ -6,7 +6,6 @@ import sys
 import os
 import argparse
 import time
-import logging
 import warnings
 import numpy as np
 #from scipy.optimize import minimize
@@ -283,23 +282,22 @@ def plot_3D_structure(structure, output_prefix, interactions = None, clusters = 
 	start_time = time.time()
 	if not log_fn:
 		log_fn = output_prefix + "_visualize_structure.log"
-	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
-						format = '[%(name)s:%(levelname)s]\t%(message)s')
-	logging.info("Python version " + sys.version + "\n")
+	logger = create_logger('plot_structure.py', log_fn)
+	logger.info("Python version " + sys.version + "\n")
 	function_param = f'plot_3D_structure(structure=\'{structure}\', output_prefix=\'{output_prefix}\', interactions=\'{interactions}\', ' + \
 		f'clusters=\'{clusters}\', annotation=\'{annotation}\', ref=\'{ref}\', download_gene={download_gene}, gene_fn=\'{gene_fn}\', ' + \
 		f'noncyclic={noncyclic}, plot_axis={plot_axis}, save_png={save_png}, log_fn=\'{log_fn}\')'
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 	"""
 	Read 3D coordinates
 	"""
 	X = np.array([])
 	if structure.endswith(".txt"):
 		X = np.loadtxt(structure)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded resolved 3D structure, in txt format.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded resolved 3D structure, in txt format.")
 	elif structure.endswith(".npy"):
 		X = np.load(structure)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded resolved 3D structure, in npy format.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded resolved 3D structure, in npy format.")
 	else:
 		raise OSError("Input matrix must be in *.txt or *.npy format.")
 
@@ -318,8 +316,8 @@ def plot_3D_structure(structure, output_prefix, interactions = None, clusters = 
 					si.append(line.strip().split('\t'))
 				i += 1
 			fp.close()
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded significant interactions.")
-			logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "Significant interactions: %s" %si)
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded significant interactions.")
+			logger.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "Significant interactions: %s" %si)
 
 	"""
 	Read annotations and map bins to gene names
@@ -385,7 +383,7 @@ def plot_3D_structure(structure, output_prefix, interactions = None, clusters = 
 			oncogenes[s[0]][gene_name][0] = min(int(s[3]), oncogenes[s[0]][gene_name][0])
 			oncogenes[s[0]][gene_name][1] = max(int(s[4]), oncogenes[s[0]][gene_name][1])
 	fp.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Parsed oncogene names and strand from %s." %(oncogene_fn))
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Parsed oncogene names and strand from %s." %(oncogene_fn))
 	
 	bins = dict()
 	res = -1
@@ -415,10 +413,10 @@ def plot_3D_structure(structure, output_prefix, interactions = None, clusters = 
 							bin2gene[int(s[i])] = {gene: gene_intrvl[2]}
 						unique_genes.add(gene)
 		fp.close()
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped the following bins to genes.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped the following bins to genes.")
 		for bin_num in bin2gene:
 			for gene in bin2gene[bin_num].keys():
-				logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + \
+				logger.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + \
 						"Bin number: %d; Gene name: %s; Strand: %s" %(bin_num, gene, bin2gene[bin_num][gene]))
 
 	breakpoints = [(-1, 0)]
@@ -435,16 +433,16 @@ def plot_3D_structure(structure, output_prefix, interactions = None, clusters = 
 					abs(bins[i][1] - bins[i - 1][1]) == res and abs(bins[i + 2][1] - bins[i + 1][1]) == res and \
 					bins[i][1] - bins[i - 1][1] != bins[i + 2][1] - bins[i + 1][1]: #foldbacks
 					breakpoints.append((i, i + 1))
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Extracted %d breakpoint from annotation file." %(len(breakpoints)))
-		logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "breakpoints %s" %(breakpoints))	
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Identified breakpoints from annotation file.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Extracted %d breakpoint from annotation file." %(len(breakpoints)))
+		logger.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "breakpoints %s" %(breakpoints))	
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Identified breakpoints from annotation file.")
 
 	# Assign colors to genes
 	gene_colors = dict()
 	for gene in unique_genes:
 		color = str(hashlib.sha1(gene.encode('utf-8')).hexdigest())[-6:]
 		gene_colors[gene] = f'#{color}'
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Assigned one distinct color to each gene name.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Assigned one distinct color to each gene name.")
 	
 	# Read in and visualize clusters
 	clusters = []
@@ -459,8 +457,8 @@ def plot_3D_structure(structure, output_prefix, interactions = None, clusters = 
 				clusters.append(line.strip().split('\t'))
 			i += 1
 		fp.close()
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded clusters of significant interactions.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Clusters: %s." %clusters)
 
 	noncyclic_ = False
 	plot_axis_ = False
@@ -473,8 +471,8 @@ def plot_3D_structure(structure, output_prefix, interactions = None, clusters = 
 		save_png = True
 	plotstr_significant_interactions_and_genes(X, breakpoints, bins, bin2gene, redundant_genes, gene_colors, si, clusters, output_prefix, 
 		noncyclic = noncyclic_, show_background = plot_axis_, save_png = save_png)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(output_prefix + "_ec3d.html"))
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(output_prefix + "_ec3d.html"))
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	print('3D structure visualization is done. The plot is saved to %s.' %(output_prefix + "_ec3d.html"))
 
 if __name__ == '__main__':

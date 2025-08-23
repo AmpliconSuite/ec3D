@@ -15,7 +15,7 @@ from sklearn.metrics import euclidean_distances
 from autograd import grad
 
 
-from util import getTransformation
+from util import getTransformation, create_logger
 
 
 def compute_wish_distances(C_, alpha = -3.0, beta = 1.0):
@@ -664,7 +664,7 @@ def convergence_criteria(f_k_list, f_k_len = 10, factr = 1e9):
 		return (dif <= factr * np.finfo(float).eps)
 
 
-def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, idx_map, round = 5000, alpha = -3.0, beta = 1.0, reg_weight = 0.05, maxiter = 10000, start_time_ = None, gt_structure = None):
+def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, idx_map, logger, round = 5000, alpha = -3.0, beta = 1.0, reg_weight = 0.05, maxiter = 10000, start_time_ = None, gt_structure = None):
 	"""
 	Poisson model caller
 	"""
@@ -702,10 +702,10 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 	beta_gradient = grad(exponent_obj_beta_auto)
 	poisson_gradient = grad(poisson_obj_reg_auto)
 	gamma = reg_weight
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Regularizer weight %f * N_e." %(gamma))
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Regularizer weight %f * N_e." %(gamma))
 	for it in range(round):
 		#print(f'Poisson iteration {it+1}')
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Begin iteration %d." %(it + 1))
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Begin iteration %d." %(it + 1))
 		
 		# estimate alpha and beta by autograd
 		"""
@@ -720,21 +720,21 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 		alpha, beta, f_alpha = estimate_alpha_beta(X_, C_nodup, S, C_dup, alpha, beta)
 		if beta > 400.0 or beta < 0.01:
 			return X_, results[1], alpha, beta
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tEstimated alpha = %f; beta = %f." %(alpha, beta))
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + 
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tEstimated alpha = %f; beta = %f." %(alpha, beta))
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + 
 				"\tLog likelihood evaluated with alpha and beta at iteration %d = %f." %(it + 1, f_alpha))
 		results = optimize.fmin_l_bfgs_b(poisson_obj_reg_auto, X_.flatten(), fprime = poisson_gradient, 
 						args = (N, C_nodup, S, C_dup, idx_map, alpha, beta, True, gamma, ), 
 						bounds = bounds_x, maxiter = maxiter)
 		X_ = results[0].reshape(-1, 3)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tLog likelihood at iteration %d = %f." %(it + 1, results[1]))
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tLog likelihood at iteration %d = %f." %(it + 1, results[1]))
 		if gt_structure != None:
 			structure1, structure2 = X_[idx_map], X_original
 			rmsd, X1, X2, pcc = getTransformation(structure1, structure2) # structure1 is transformed
 			# np.savetxt(f'simple_structure_{it}.txt', X1)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tRMSD = %f\tPCC = %f" %(rmsd, pcc))
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tRMSD = %f\tPCC = %f" %(rmsd, pcc))
 		if convergence_criteria(obj_list):
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tPoisson model optimization converges at iteration %d." %(it + 1))
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "\tPoisson model optimization converges at iteration %d." %(it + 1))
 			break
 		elif len(obj_list) < 10:
 			obj_list.append(results[1])
@@ -753,11 +753,10 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 	start_time = time.time()
 	if not log_fn:
 		log_fn = output_prefix + "_optimization.log"
-	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
-						format = '[%(name)s:%(levelname)s]\t%(message)s')
-	logging.info("Python version " + sys.version + "\n")
+	logger = create_logger('spatial_structure.py', log_fn)
+	logger.info("Python version " + sys.version + "\n")
 	function_param = f'reconstruct_3D_structure(matrix=\'{matrix}\', annotation=\'{annotation}\', output_prefix=\'{output_prefix}\', log_fn=\'{log_fn}\', reg={reg}, init_alpha={init_alpha}, num_repeats={num_repeats}, save_repeats={save_repeats}, max_rounds={max_rounds}, gt_structure=\'{gt_structure}\', save_npy={save_npy})'
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 
 	"""
 	Parameter check
@@ -777,7 +776,7 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 		C = np.load(matrix)
 	else:
 		raise OSError("Input matrix must be in *.txt or *.npy format.")
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded normalized collapsed ecDNA matrix.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded normalized collapsed ecDNA matrix.")
 	
 	"""
 	Construct Hi-C matrix with duplication
@@ -799,9 +798,9 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 	N += 1
 	fp.close()
 	assert (len(row_labels) == C.shape[0])
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Expanded ecDNA matrix size: %d." %N)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Collapsed ecDNA matrix size: %d." %len(row_labels))				
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Expanded ecDNA matrix size: %d." %N)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Collapsed ecDNA matrix size: %d." %len(row_labels))				
 
 	"""
 	Run MDS with alpha = init_alpha to compute an initial X  
@@ -876,7 +875,7 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 				cj += ni2 
 			ci += ni1
 		#ini_c[ini_c < 1.0] = 1.0
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Initialized expanded ecDNA matrix for MDS.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Initialized expanded ecDNA matrix for MDS.")
 	
 	"""
 	Map bin indices for optimization: place the bins without duplication in front
@@ -901,13 +900,13 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 	best_beta = 1.0
 	while repeat < num_repeats + 1:
 		print(f'Repeat {repeat}')
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repeat %d:" %repeat)
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repeat %d:" %repeat)
 
 		"""
 		Run MDS
 		"""
 		MDS_X1, MDS_X2 = mds(C, N, idx_nodup, idx_dup, dup_times, ini_c, alpha = init_alpha)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "MDS optimization completed.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "MDS optimization completed.")
 		""" Disabled saving of MDS output
 		if gt_structure == None:
 			np.savetxt(f'{output_prefix}_mds_{repeat}_3d.txt', MDS_X1[idx_map])
@@ -925,15 +924,15 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 		Run Poisson model with initial X and matrix returned from MDS
 		"""
 		try:
-			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, max_rounds, start_time_ = start_time, gt_structure = gt_structure, alpha = init_alpha, reg_weight = reg)
+			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, logger, max_rounds, start_time_ = start_time, gt_structure = gt_structure, alpha = init_alpha, reg_weight = reg)
 			if save_repeats:
 				np.savetxt(output_prefix + "_repeat" + str(repeat) + '_coordinates.txt', PM_X)
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
 			if PM_obj < PM_obj_min:
 				if np.isinf(PM_obj_min):
-					logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reset the current best repetition to %d." %(repeat))
+					logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reset the current best repetition to %d." %(repeat))
 				else:
-					logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repetition %d showed a better objective than current best repetition %d." %(repeat, repeat_)) 
+					logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Repetition %d showed a better objective than current best repetition %d." %(repeat, repeat_)) 
 				PM_obj_min = PM_obj
 				PM_X_min = PM_X
 				repeat_ = repeat
@@ -957,13 +956,13 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 	else:
 		output_coordinates_fn = output_prefix + "_coordinates.txt"
 		np.savetxt(output_coordinates_fn, PM_X_min)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the resolved 3D structure to %s." %output_coordinates_fn)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the resolved 3D structure to %s." %output_coordinates_fn)
 	output_params_fn = output_prefix + "_hyperparameters.txt"
 	fp_w = open(output_params_fn, 'w')
 	fp_w.write("alpha\t%f\n" %best_alpha)
 	fp_w.write("beta\t%f\n" %best_beta)
 	fp_w.close()
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the hyperparameters to %s." %output_params_fn)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the hyperparameters to %s." %output_params_fn)
 	if gt_structure != None:
 		structure1, structure2 = PM_X_min, np.loadtxt(gt_structure)
 		rmsd, X1, X2, pcc = getTransformation(structure1, structure2) # structure1 is transformed
@@ -973,8 +972,8 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 		else:
 			output_coordinates_fn = output_prefix + "_aligned_coordinates.txt"
 			np.savetxt(output_coordinates_fn, X1)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the aligned 3D structure to %s." %output_coordinates_fn)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the aligned 3D structure to %s." %output_coordinates_fn)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	print("3D structure reconstruction is done. The 3D structure is saved to %s." %output_coordinates_fn)
 
 if __name__ == "__main__":

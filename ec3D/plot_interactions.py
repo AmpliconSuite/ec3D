@@ -4,7 +4,6 @@ Author: Biswanath Chowdhury
 """
 import os
 import sys
-import logging
 import argparse
 import time
 import numpy as np
@@ -32,18 +31,17 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 		log_fn = output_prefix + "_visualize_interactions.log"
 	else:
 		log_fn = log_fn
-	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
-						format = '[%(name)s:%(levelname)s]\t%(message)s')
-	logging.info("Python version " + sys.version + "\n")
+	logger = create_logger('plot_interactions.py', log_fn)
+	logger.info("Python version " + sys.version + "\n")
 	function_param = f'plot_significant_interactions(ecdna_cycle=\'{ecdna_cycle}\', resolution={resolution}, matrix=\'{matrix}\', output_prefix=\'{output_prefix}\', annotation=\'{annotation}\', interactions=\'{interactions}\', sv_list=\'{sv_list}\', fontsize={fontsize}, min_segment_ratio={min_segment_ratio}, plot_collapsed_matrix={plot_collapsed_matrix}, log_fn=\'{log_fn}\')'
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 
 	"""
 	Read in ecDNA cycle
 	"""
 	res = resolution
 	intrvls = read_ecDNA_cycle(ecdna_cycle, res)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "ecDNA involves %d amplified intervals with resolution %d." %(len(intrvls), res))
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "ecDNA involves %d amplified intervals with resolution %d." %(len(intrvls), res))
 	
 	"""
 	Optional: Read in annotations
@@ -54,8 +52,7 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 	idx_dedup = []
 	if plot_collapsed_matrix or sv_list:
 		if annotation == 'None':
-			print("Annotation file is required.")
-			exit(1)
+			raise ValueError("Annotation file is required.")
 		fp = open(annotation, 'r')
 		for line in fp:
 			s = line.strip().split()
@@ -69,9 +66,9 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 					N = max(N, int(s[i]))
 		N += 1
 		fp.close()
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Expanded ecDNA matrix size: %d." %N)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Collapsed ecDNA matrix size: %d." %len(row_labels))
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Expanded ecDNA matrix size: %d." %N)
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Collapsed ecDNA matrix size: %d." %len(row_labels))
 	if plot_collapsed_matrix:
 		idx_dedup = sorted([row_labels[bin][0] for bin in bins])
 		idx_dedup_map = {row_labels[bin][0]: bin for bin in bins}
@@ -87,7 +84,7 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 				intrvls.append(intrvl)
 				intrvl = [idx_dedup_map[idx_dedup[i]][0], idx_dedup_map[idx_dedup[i]][1], idx_dedup_map[idx_dedup[i]][1] + res]
 		intrvls.append(intrvl)	
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reset amplified intervals according to collapsed matrix.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reset amplified intervals according to collapsed matrix.")
 
 	# Calculate the midpoints for x-tick and y-tick labels
 	start_pos = []
@@ -107,7 +104,7 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 		mid_pos.append(num_bins + intrvl_len * 0.5)
 		num_bins += intrvl_len
 		start_pos.append(num_bins)
-		logging.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "\tAmplified interval %s." %intrvl)
+		logger.debug("#TIME " + '%.4f\t' %(time.time() - start_time) + "\tAmplified interval %s." %intrvl)
 	yticklbl.append(num_bins)
 
 	"""
@@ -116,10 +113,10 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 	data = np.array([])
 	if matrix.endswith(".txt"):
 		data = np.loadtxt(matrix)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in txt format.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in txt format.")
 	elif matrix.endswith(".npy"):
 		data = np.load(matrix)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in npy format.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix without duplication, in npy format.")
 	else:
 		raise OSError("Input matrix must be in *.txt or *.npy format.")
 	if plot_collapsed_matrix:
@@ -136,9 +133,9 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 	# Display heatmap with bin numbers
 	im = ax.matshow(log_data, cmap = 'YlOrRd')
 	if plot_collapsed_matrix:
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted collapsed matrix.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted collapsed matrix.")
 	else:
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted expanded matrix.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted expanded matrix.")
 
 	# Create a color bar with consistent font size
 	cbar = fig.colorbar(im, ax = ax, fraction = 0.046, pad = 0.04)
@@ -169,7 +166,7 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 					si_y.append(bin1)
 				except:
 					pass
-			logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped significant interactions to collapsed matrix.")
+			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Mapped significant interactions to collapsed matrix.")
 		else:
 			for line in fp:
 				s = line.strip().split('\t')
@@ -180,7 +177,7 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 					pass
 		fp.close()
 		ax.plot(si_x, si_y, 'o', markeredgewidth = 1, ms = 5, markerfacecolor = "None", markeredgecolor = 'b')
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted significant interactions.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted significant interactions.")
 
 	# Optional: plot additional SVs
 	if sv_list:	
@@ -210,7 +207,7 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 				pass
 		fp.close()
 		ax.plot(sv_x, sv_y, 's', markeredgewidth = 1, ms = 6, markerfacecolor = "None", markeredgecolor = 'k')
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted additional structural variations.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Plotted additional structural variations.")
 
 	# Adjust ticks on the axis
 	ax.set_xticks(mid_pos, minor = False)
@@ -230,8 +227,8 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 	else:
 		plt.savefig(output_prefix + "_expanded_matrix.pdf")
 		plt.savefig(output_prefix + "_expanded_matrix.png", dpi = 150)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the plot to pdf and png.")
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the plot to pdf and png.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	print('Significant interactions plot is done. Significant interactions are visualized in %s and %s.' %(output_prefix + "_collapsed_matrix.pdf", output_prefix + "_collapsed_matrix.png" if plot_collapsed_matrix else output_prefix + "_expanded_matrix.pdf"))
 
 if __name__ == '__main__':

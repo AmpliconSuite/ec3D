@@ -2,7 +2,6 @@ import sys
 import argparse
 import warnings
 import numpy as np
-import logging
 import time
 import autograd.numpy as auto_np
 
@@ -12,6 +11,7 @@ from scipy.special import loggamma, digamma
 from autograd import grad
 from iced import normalization
 
+from util import create_logger
 
 def c_obj(x, X, N, S = None, C_dup = None, alpha = -3.0, beta = 1.0):
 	C1 = x.reshape(N, -1).copy()
@@ -54,8 +54,7 @@ def c_gradient(x, X, N, S = None, C_dup = None, alpha = -3.0, beta = 1.0):
 
 def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix, strategy="redist", log_fn=None, save_npy=False):
 	if strategy not in ['redist', 'hybrid', 'poisson']:
-		print(f'expand_matrix.py: The strategy {strategy} is not one of the choices: [\'redist\', \'hybrid\', \'poisson\']')
-		exit(1)
+		raise ValueError(f'expand_matrix.py: The strategy {strategy} is not one of the choices: [\'redist\', \'hybrid\', \'poisson\']')
 	"""
 	Set up logging
 	"""
@@ -63,11 +62,10 @@ def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix,
 	start_time = time.time()
 	if not log_fn:
 		log_fn = output_prefix + "_matrix_expansion.log"
-	logging.basicConfig(filename = log_fn, filemode = 'w', level = logging.DEBUG, 
-						format = '[%(name)s:%(levelname)s]\t%(message)s')
-	logging.info("Python version " + sys.version + "\n")
+	logger = create_logger('expand_matrix.py', log_fn)
+	logger.info("Python version " + sys.version + "\n")
 	function_param = f'expand_matrix(raw_matrix=\'{raw_matrix}\', annotation=\'{annotation}\', structure=\'{structure}\', alpha={alpha}, beta={beta}, output_prefix=\'{output_prefix}\', strategy=\'{strategy}\', log_fn=\'{log_fn}\', save_npy={save_npy})'
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 
 	"""
 	Read collapsed matrix
@@ -79,7 +77,7 @@ def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix,
 		C = np.load(raw_matrix)
 	else:
 		raise OSError("Input matrix must be in *.txt or *.npy format.")
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded raw collapsed ecDNA matrix.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded raw collapsed ecDNA matrix.")
 
 	"""
 	Read in annotation file
@@ -101,9 +99,9 @@ def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix,
 	N += 1
 	fp.close()
 	assert (len(row_labels) == C.shape[0])
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Expanded ecDNA matrix size: %d." %N)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Collapsed ecDNA matrix size: %d." %len(row_labels))
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA matrix annotations.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Expanded ecDNA matrix size: %d." %N)
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Collapsed ecDNA matrix size: %d." %len(row_labels))
 
 	bins = sorted(bins, key = lambda bin: row_labels[bin][0])
 	idx_nodup = [bi for bi in range(len(bins)) if len(row_labels[bins[bi]]) == 1]
@@ -136,7 +134,7 @@ def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix,
 		X = np.load(structure)
 	else:
 		raise OSError("Input matrix must be in *.txt or *.npy format.")
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
 	
 	X_ = X[idx_map_rev]
 	dis = euclidean_distances(X_)
@@ -238,16 +236,16 @@ def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix,
 
 	D = np.block([[C_nodup, C1_[: N_nodup, :]], [C1_.T]])
 	D = D[np.ix_(idx_map, idx_map)]
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reconstructed the expanded matrix.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Reconstructed the expanded matrix.")
 	D = normalization.ICE_normalization(D)
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Normalized the expanded matrix.")
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Normalized the expanded matrix.")
 	if save_npy:
 		np.save(output_prefix + "_expanded_matrix.npy", D)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the expanded matrix to %s." %(output_prefix + "_expanded_matrix.npy"))
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the expanded matrix to %s." %(output_prefix + "_expanded_matrix.npy"))
 	else:
 		np.savetxt(output_prefix + "_expanded_matrix.txt", D)
-		logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the expanded matrix to %s." %(output_prefix + "_expanded_matrix.txt"))
-	logging.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
+		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the expanded matrix to %s." %(output_prefix + "_expanded_matrix.txt"))
+	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	print('Matrix expansion is done. The expanded matrix is saved to %s.' % (output_prefix + "_expanded_matrix.txt" if not save_npy else output_prefix + "_expanded_matrix.npy"))
 
 if __name__ == "__main__":
