@@ -1,3 +1,58 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "ec3D"
+version = "0.0.1"
+description = "Reconstructing 3D structures of extrachromosomal DNA and other focal amplifications"
+authors = [
+    {name = "Kaiyuan Zhu", email = "kaiyuan-zhu@ucsd.edu"},
+    {name = "Chaohui Li", email = "chl221@ucsd.edu"},
+    {name = "Biswanath Chowdhary"}
+]
+maintainers = [
+    {name = "Kaiyuan Zhu", email = "kaiyuan-zhu@ucsd.edu"},
+    {name = "Chaohui Li", email = "chl221@ucsd.edu"}
+]
+license = {text = "BSD 3-clause"}
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "cooler>=0.10.2",
+    "iced>=0.5.10",
+    "scipy>=1.10.1",
+    "scikit-learn>=1.3.2",
+    "autograd>=1.6.2",
+    "networkx>=3.1",
+    "python-louvain>=0.16",
+    "plotly>=5.24.1",
+    "kaleido>=0.2.1",
+    "statsmodels>=0.14.5",
+    "matplotlib>=3.7.1",
+    "hic2cool>=0.8.3"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
+
+[project.urls]
+Homepage = "https://github.com/AmpliconSuite/ec3D"
+Repository = "https://github.com/AmpliconSuite/ec3D"
+
+[project.scripts]
+ec3D = "ec3D.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+ec3D = ["data_repo/*"]

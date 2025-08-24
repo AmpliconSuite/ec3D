@@ -8,7 +8,10 @@ import argparse
 import time
 import numpy as np
 
-from util import *
+try:
+	from ec3D.util import create_logger, read_ecDNA_cycle
+except:
+	from util import create_logger, read_ecDNA_cycle
 
 import matplotlib as mpl
 mpl.use('Agg')

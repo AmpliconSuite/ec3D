@@ -1,8 +1,12 @@
 import sys
 import numpy as np
 from scipy import optimize
-from spatial_structure import poisson_obj_reg_auto
 import argparse
+
+try:
+	from ec3D.spatial_structure import poisson_obj_reg_auto
+except:
+	from spatial_structure import poisson_obj_reg_auto
 
 def get_objective_value(X_fn, C_fn, annotation_fn, alpha, beta, reg, gamma):
 	X = np.loadtxt(X_fn)

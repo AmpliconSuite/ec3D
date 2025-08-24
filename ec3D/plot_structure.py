@@ -14,7 +14,10 @@ import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 #from plotly.offline import plot
 
-from util import *
+try:
+	from ec3D.util import create_logger, chr_idx
+except:
+	from util import create_logger, chr_idx
 
 """
 def bending_energy(coords):

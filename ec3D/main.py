@@ -1,14 +1,27 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 import argparse
 import hic2cool
 import numpy as np
 from threadpoolctl import threadpool_limits
 
-from extract_matrix import extract_matrix
-from spatial_structure import reconstruct_3D_structure
-from expand_matrix import expand_matrix
-from significant_interactions import identify_significant_interactions
-from plot_interactions import plot_significant_interactions
-from plot_structure import plot_3D_structure
+try:
+	from ec3D.extract_matrix import extract_matrix
+	from ec3D.spatial_structure import reconstruct_3D_structure
+	from ec3D.expand_matrix import expand_matrix
+	from ec3D.significant_interactions import identify_significant_interactions
+	from ec3D.plot_interactions import plot_significant_interactions
+	from ec3D.plot_structure import plot_3D_structure
+except:
+	from extract_matrix import extract_matrix
+	from spatial_structure import reconstruct_3D_structure
+	from expand_matrix import expand_matrix
+	from significant_interactions import identify_significant_interactions
+	from plot_interactions import plot_significant_interactions
+	from plot_structure import plot_3D_structure
 
 def main():
 	parser = argparse.ArgumentParser(description = "Compute the 3D coordinates from Hi-C.")

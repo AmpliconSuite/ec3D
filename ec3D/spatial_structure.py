@@ -14,8 +14,10 @@ from sklearn.utils import check_random_state
 from sklearn.metrics import euclidean_distances
 from autograd import grad
 
-
-from util import getTransformation, create_logger
+try:
+	from ec3D.util import getTransformation, create_logger
+except:
+	from util import getTransformation, create_logger
 
 
 def compute_wish_distances(C_, alpha = -3.0, beta = 1.0):

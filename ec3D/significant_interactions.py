@@ -14,7 +14,10 @@ from sklearn.metrics import euclidean_distances
 from scipy.stats import poisson, nbinom
 from statsmodels.stats.multitest import multipletests
 
-from util import create_logger
+try:
+	from ec3D.util import create_logger
+except:
+	from util import create_logger
 
 def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.05, model='global_nb', 
 									  padding='average', genomic_distance_model='circular', significant_interactions=None, 

@@ -6,11 +6,12 @@ import numpy as np
 import argparse
 import cooler
 import time
-import warnings
-warnings.filterwarnings("ignore", category=UserWarning)
 from iced import normalization
 
-from util import *
+try:
+	from ec3D.util import create_logger, read_ecDNA_cycle, reorder_bins
+except:
+	from util import create_logger, read_ecDNA_cycle, reorder_bins
 
 def extract_matrix(cool, ecdna_cycle, resolution, output_prefix, log_fn=None, save_npy=False):
 	"""

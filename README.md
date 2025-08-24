@@ -1,4 +1,9 @@
 # ec3D: reconstructing the 3D structure of extrachromosomal DNA molecules
+[![GitHub release](https://img.shields.io/github/release/AmpliconSuite/ec3D.svg)](https://github.com/AmpliconSuite/ec3D/releases)
+[![PyPI version](https://badge.fury.io/py/ec3D.svg)](https://badge.fury.io/py/ec3D)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
+Ec3D is a computational method for reconstructing 3D structures of ecDNA and analyzing significant interactions from high-throughput chromatin capture (Hi-C) data.
 
 ## Dependencies 
 - Cooler (https://cooler.readthedocs.io/)
@@ -11,34 +16,56 @@
 - Plotly (https://plotly.com/python/) and Kaleido (https://pypi.org/project/kaleido/)
 
 ## Installation
-ec3D can be installed and run on most modern Unix-like operating systems (e.g. Ubuntu 18.04+, CentOS 7+, macOS). It requires python>=3.7 and the above dependencies. To install ec3D, you will first need to download its source code,
+Ec3D can be installed and run on most modern Unix-like operating systems (e.g. Ubuntu 18.04+, CentOS 7+, macOS). It requires python>=3.8 and the above dependencies. There are a few options for installing ec3D as follows. 
+### Option A: Installing from PyPI
 ```
-git clone git@github.com:AmpliconSuite/ec3D.git
-cd /path/to/ec3D
+pip install ec3D
 ```
-And, then, setting up the running environment with **Conda**
-```
-conda env create -f environment.yml
-conda activate ec3D_env
-```
-or **pip**,
-```
-pip3 install .
-```
+### Option B: Local installation with venv
+1. Pull the source code
+    ```
+    git clone git@github.com:AmpliconSuite/ec3D.git
+    cd /path/to/ec3D
+    ```
+2. Create a virtual environment
+    ```
+    python3 -m venv ec3D_venv
+    source ec3D_venv/bin/activate
+    ```
+3. Install dependencies locally
+    ```
+    pip install .
+    ```
+### Option C: Local installation with Conda
+1. Pull the source code
+    ```
+    git clone git@github.com:AmpliconSuite/ec3D.git
+    cd /path/to/ec3D
+    ```
+2. Create a Conda environment with dependencies
+    ```
+    conda env create -f environment.yml
+    conda activate ec3D_env
+    ```
 ## Running
 ### Batch mode
 The easiest way to run ec3D is running in **batch** mode, performing all following steps (i.e., [Preprocessing Hi-C](#step-1---preprocessing-hi-c), [Reconstructing the 3D structure of ecDNA](#step-2---reconstructing-the-3d-structure-of-ecdna), [Identifying significant interactions](#step-3---identifying-significant-interactions), and [Visualization](#step-4---visualization)), with default parameters. For custom parameter adjustments, it is best to run through individual steps.
 ```
-python3 ec3D.py --cool <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRING>
+ec3D --hic <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRING>
 ```
-The only required input for ec3D is a Hi-C matrix, in ```*.cool``` format, and an ecDNA cycle, in browser extensible data (```*.bed```) format. Of course, you will need to specify the resolution to work with, and a prefix of the desired output. After a successful reconstruction, ```ec3D.py``` will write all default output files in the following steps into the path specified in ```--output_prefix```.
-- ```--cool <FILE>```, Hi-C matrix, in ```*.cool``` format. Usually [cooler](https://cooler.readthedocs.io/) will organize multiple cool files with different resolutions in ```*.mcool``` format, and you will need to add a suffix ```::/resolutions/<RESOLUTION>``` to specify the resolution you want to work with.
+or
+```
+python3 /path/to/ec3D/ec3D/main.py --hic <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRING>
+```
+The only required input for ec3D is a Hi-C matrix, in ```*.[m]cool``` or ```*.hic``` format, and an ecDNA cycle, in browser extensible data (```*.bed```) format. Of course, you will need to specify the resolution to work with, and a prefix of the desired output. After a successful reconstruction, ```ec3D``` will write all default output files in the following steps into the path specified in ```--output_prefix```.
+- ```--hic <FILE>```, Hi-C matrix, in ```*.[m]cool``` or ```*.hic``` format. Usually [cooler](https://cooler.readthedocs.io/) will organize multiple cool files with different resolutions in ```*.mcool``` format, and you will need to add a suffix ```::/resolutions/<RESOLUTION>``` to specify the resolution you want to work with. If ```*.hic``` is provided, it will be converted to ```.cool``` by ec3D. 
 - ```--ecdna_cycle <FILE>```, ecDNA intervals, in ```*.bed``` (with chr, start, end stored in the first three columns and strand orientation stored in the 6-th column) format, see below for an example.
-- ```--resolution <INT>```, Resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file. Each ```ec3D``` run must only work with a single fixed resolution.
-- ```--output_prefix <STRING>```, Prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included.
+- ```--resolution <INT>```, resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file. Each ```ec3D``` run must only work with a single fixed resolution.
+- ```--output_prefix <STRING>```, prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included as a prefix. 
+- ```--num_threads <INT>```, maximal number of threads (default 8) that can be used by ec3D. Note that the multi-core utilization arises from parallelized BLAS operations for reconstructing 3D structures, and ec3D takes advantage of multiple CPU cores for intensive computation. Adding a control limit on available number of threads can save computational resources but may increase running time. 
 
 ### Sample run of ec3D
-As a test sample, you can download the processed Hi-C dataset for D458 (a pediatric medulloblastoma cell line) from [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM7697651), and convert it to ```*.mcool``` format:
+As a test sample, you can download the processed Hi-C dataset for D458 (a pediatric medulloblastoma cell line) from [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM7697651), and convert it to ```*.mcool``` format (ec3D can also convert it to ```*.cool``` internally with a specific resolution):
 ```
 wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM7697nnn/GSM7697651/suppl/GSM7697651%5FD458.allValidPairs.hic
 hic2cool convert GSM7697651_D458.allValidPairs.hic D458.mcool
@@ -46,7 +73,7 @@ hic2cool convert GSM7697651_D458.allValidPairs.hic D458.mcool
 Then, use [this ecDNA cycle](https://github.com/AmpliconSuite/ec3D/blob/main/sample/D458_ecDNA.bed) below to kick off a ec3D batch run.
 ```
 mkdir sample_output
-python3 ec3D.py --cool D458.mcool::/resolutions/5000 --ecdna_cycle D458_ecDNA.bed --output_prefix ./sample_output/D458 --resolution 5000
+ec3D --cool D458.mcool::/resolutions/5000 --ecdna_cycle D458_ecDNA.bed --output_prefix ./sample_output/D458 --resolution 5000
 ```
 
 ### Step 1 - Preprocessing Hi-C

@@ -11,7 +11,10 @@ from scipy.special import loggamma, digamma
 from autograd import grad
 from iced import normalization
 
-from util import create_logger
+try:
+	from ec3D.util import create_logger
+except:
+	from util import create_logger
 
 def c_obj(x, X, N, S = None, C_dup = None, alpha = -3.0, beta = 1.0):
 	C1 = x.reshape(N, -1).copy()
