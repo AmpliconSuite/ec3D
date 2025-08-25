@@ -62,7 +62,7 @@ The only required input for ec3D is a Hi-C matrix, in ```*.[m]cool``` or ```*.hi
 - ```--ecdna_cycle <FILE>```, ecDNA intervals, in ```*.bed``` (with chr, start, end stored in the first three columns and strand orientation stored in the 6-th column) format, see below for an example.
 - ```--resolution <INT>```, resolution, which should match the resolution (i.e., bin size) of the input ```*.cool``` file. Each ```ec3D``` run must only work with a single fixed resolution.
 - ```--output_prefix <STRING>```, prefix of the output matrix files and annotation file ```*_annotations.bed```. Note that if these file is desired to be written to a different directory, then a path/directory should also be included as a prefix. 
-- ```--num_threads <INT>```, maximal number of threads (default 8) that can be used by ec3D. Note that the multi-core utilization arises from parallelized BLAS operations for reconstructing 3D structures, and ec3D takes advantage of multiple CPU cores for intensive computation. Adding a control limit on available number of threads can save computational resources but may increase running time. 
+- ```--num_threads <INT>```, maximal number of threads (optional, default 8) that can be used by ec3D. Note that the multi-core utilization arises from parallelized BLAS operations for reconstructing 3D structures, and ec3D takes advantage of multiple CPU cores for intensive computation. Adding a control limit on available number of threads can save computational resources but may increase running time. 
 
 ### Sample run of ec3D
 As a test sample, you can download the processed Hi-C dataset for D458 (a pediatric medulloblastoma cell line) from [GEO](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM7697651), and convert it to ```*.mcool``` format (ec3D can also convert it to ```*.cool``` internally with a specific resolution):
@@ -102,7 +102,8 @@ chr8	127957689	128012988	1	1.000000	-	True
 chr8	128443842	128452940	1	1.000000	+	True
 chr8	128458992	129085009	1	1.000000	+	True
 ```
-- The provided ecDNA structure in a cycle bed file may include duplicated segments in its records, e.g., ```chr8 127293093 127948583``` and ```chr8 127872074 128441212```.  We refer to _collapsed_ matrix as the Hi-C matrix where each duplicated segment occurs only one time; and _expanded_ matrix as the Hi-C matrix representing the structure of ecDNA where all duplicated segments occur as many times as they are duplicated. ec3D will automatically process cycle files containing duplicated segments and reconstruct the underlying ecDNA structures, regardless of whether the input from ```--ecdna_cycle``` contains duplication or not.
+- The provided ecDNA structure in a cycle bed file may include duplicated segments in its records, e.g., ```chr8 127293093 127948583``` and ```chr8 127872074 128441212```.  We refer to _collapsed_ matrix as the Hi-C matrix where each duplicated segment occurs only one time; and _expanded_ matrix as the Hi-C matrix representing the structure of ecDNA where all duplicated segments occur as many times as they are duplicated. Ec3D will automatically process cycle files containing duplicated segments and reconstruct the underlying ecDNA structures, regardless of whether the input from ```--ecdna_cycle``` contains duplication or not. 
+- Please note that ec3D accepts the UCSC (e.g., "chr1", "chr2", "chrX") and Ensembl ("1", "2", "X") conventions of chromosome names, which should be consistent in the Hi-C data and ecDNA cycle file. 
 #### Output of Step 1
 Outputs from ```extract_matrix.py``` include 
 - (i) the ICE normalized collapsed matrix ```*_ice_normalized.npy```;
