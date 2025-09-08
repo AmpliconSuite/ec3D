@@ -15,7 +15,7 @@ from sklearn.metrics import euclidean_distances
 from autograd import grad
 
 try:
-	from ec3D.util import getTransformation, create_logger
+	from ec3d.util import getTransformation, create_logger
 except:
 	from util import getTransformation, create_logger
 

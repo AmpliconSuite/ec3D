@@ -15,7 +15,7 @@ from scipy.stats import poisson, nbinom
 from statsmodels.stats.multitest import multipletests
 
 try:
-	from ec3D.util import create_logger
+	from ec3d.util import create_logger
 except:
 	from util import create_logger
 

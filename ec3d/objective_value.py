@@ -4,7 +4,7 @@ from scipy import optimize
 import argparse
 
 try:
-	from ec3D.spatial_structure import poisson_obj_reg_auto
+	from ec3d.spatial_structure import poisson_obj_reg_auto
 except:
 	from spatial_structure import poisson_obj_reg_auto
 

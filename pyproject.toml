@@ -4,7 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ec3D"
-version = "0.0.1"
+version = "1.0.0"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 description = "Reconstructing 3D structures of extrachromosomal DNA and other focal amplifications"
 authors = [
     {name = "Kaiyuan Zhu", email = "kaiyuan-zhu@ucsd.edu"},
@@ -15,7 +17,6 @@ maintainers = [
     {name = "Kaiyuan Zhu", email = "kaiyuan-zhu@ucsd.edu"},
     {name = "Chaohui Li", email = "chl221@ucsd.edu"}
 ]
-license = {text = "BSD 3-clause"}
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -35,7 +36,6 @@ dependencies = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -49,10 +49,10 @@ Homepage = "https://github.com/AmpliconSuite/ec3D"
 Repository = "https://github.com/AmpliconSuite/ec3D"
 
 [project.scripts]
-ec3D = "ec3D.main:main"
+ec3D = "ec3d.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 
 [tool.setuptools.package-data]
-ec3D = ["data_repo/*"]
+ec3D = ["ec3d/data_repo/*"]

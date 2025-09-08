@@ -9,7 +9,7 @@ import time
 import numpy as np
 
 try:
-	from ec3D.util import create_logger, read_ecDNA_cycle
+	from ec3d.util import create_logger, read_ecDNA_cycle
 except:
 	from util import create_logger, read_ecDNA_cycle
 

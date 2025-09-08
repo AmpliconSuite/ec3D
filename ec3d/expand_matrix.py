@@ -12,7 +12,7 @@ from autograd import grad
 from iced import normalization
 
 try:
-	from ec3D.util import create_logger
+	from ec3d.util import create_logger
 except:
 	from util import create_logger
 

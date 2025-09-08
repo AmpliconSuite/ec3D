@@ -15,7 +15,7 @@ from plotly.subplots import make_subplots
 #from plotly.offline import plot
 
 try:
-	from ec3D.util import create_logger, chr_idx
+	from ec3d.util import create_logger, chr_idx
 except:
 	from util import create_logger, chr_idx
 

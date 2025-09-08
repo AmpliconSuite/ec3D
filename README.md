@@ -55,7 +55,7 @@ ec3D --hic <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRIN
 ```
 or
 ```
-python3 /path/to/ec3D/ec3D/main.py --hic <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRING>
+python3 /path/to/ec3D/ec3d/main.py --hic <FILE> --ecdna_cycle <FILE> --resolution <INT> --output_prefix <STRING>
 ```
 The only required input for ec3D is a Hi-C matrix, in ```*.[m]cool``` or ```*.hic``` format, and an ecDNA cycle, in browser extensible data (```*.bed```) format. Of course, you will need to specify the resolution to work with, and a prefix of the desired output. After a successful reconstruction, ```ec3D``` will write all default output files in the following steps into the path specified in ```--output_prefix```.
 - ```--hic <FILE>```, Hi-C matrix, in ```*.[m]cool``` or ```*.hic``` format. Usually [cooler](https://cooler.readthedocs.io/) will organize multiple cool files with different resolutions in ```*.mcool``` format, and you will need to add a suffix ```::/resolutions/<RESOLUTION>``` to specify the resolution you want to work with. If ```*.hic``` is provided, it will be converted to ```.cool``` by ec3D. 

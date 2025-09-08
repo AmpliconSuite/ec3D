@@ -9,7 +9,7 @@ import time
 from iced import normalization
 
 try:
-	from ec3D.util import create_logger, read_ecDNA_cycle, reorder_bins
+	from ec3d.util import create_logger, read_ecDNA_cycle, reorder_bins
 except:
 	from util import create_logger, read_ecDNA_cycle, reorder_bins
 
