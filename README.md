@@ -1,6 +1,7 @@
 # ec3D: reconstructing the 3D structure of extrachromosomal DNA molecules
 [![GitHub release](https://img.shields.io/github/release/AmpliconSuite/ec3D.svg)](https://github.com/AmpliconSuite/ec3D/releases)
 [![PyPI version](https://badge.fury.io/py/ec3D.svg)](https://badge.fury.io/py/ec3D)
+[![DOI](https://zenodo.org/badge/819095914.svg)](https://doi.org/10.5281/zenodo.17082088)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
 Ec3D is a computational method for reconstructing 3D structures of ecDNA and analyzing significant interactions from high-throughput chromatin capture (Hi-C) data.
