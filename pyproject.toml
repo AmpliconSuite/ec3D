@@ -49,7 +49,7 @@ Homepage = "https://github.com/AmpliconSuite/ec3D"
 Repository = "https://github.com/AmpliconSuite/ec3D"
 
 [project.scripts]
-ec3D = "ec3D.main:main"
+ec3D = "ec3d.main:process_arguments"
 
 [tool.setuptools.packages.find]
 where = ["."]

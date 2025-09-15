@@ -14,14 +14,153 @@ from sklearn.metrics import euclidean_distances
 from scipy.stats import poisson, nbinom
 from statsmodels.stats.multitest import multipletests
 
+
 try:
-	from ec3D.util import create_logger
+	from ec3d.util import create_logger
 except:
 	from util import create_logger
 
-def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.05, model='global_nb', 
-									  padding='average', genomic_distance_model='circular', significant_interactions=None, 
-									  structure=None, annotation=None, max_pooling=False, exclude=None, log_fn=None):
+
+def background_model_circular(data_):
+	params_ = dict()
+	N = data_.shape[0]
+	for i in range(N):
+		for j in range(i + 1, N):
+			d = min(abs(i - j), N - abs(i - j))
+			try:
+				params_[d].append(data_[i][j])
+			except:
+				params_[d] = [data_[i][j]]
+	for d in params_.keys():
+		q25, q75 = np.percentile(params_[d], [25 ,75])
+		params_[d] = [c for c in params_[d] if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
+		params_[d] = [np.mean(params_[d]), np.var(params_[d])]
+	return params_
+
+
+def background_model_linear(data_):
+	params_ = dict()
+	N = data_.shape[0]
+	ld, d = 1, 1
+	interaction_freqs = []
+	for i in range(1, N): # Equal occupancy binning
+		for j in range(N - i):
+			interaction_freqs.append(data_[j][i + j])
+		if len(interaction_freqs) > 0.5 * N:
+			q25, q75 = np.percentile(interaction_freqs, [25 ,75])
+			interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
+			for d_ in range(d, i + 1):
+				params_[d_] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+			interaction_freqs = []
+			ld = d
+			d = i + 1
+	if len(interaction_freqs) > 0:
+		interaction_freqs = []
+		for i in range(ld, N):
+			for j in range(N - i):
+				interaction_freqs.append(data_[j][i + j])
+		q25, q75 = np.percentile(interaction_freqs, [25 ,75])
+		interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
+		for d_ in range(ld, N):
+			params_[d_] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+	return params_
+
+
+def background_model_reference(data_, bin2pos):
+	params_ = dict()
+	N = data_.shape[0]
+	for i in range(N):
+		for j in range(i + 1, N):
+			d = N
+			if bin2pos[i][0] == bin2pos[j][0]:
+				d = min(d, abs(bin2pos[i][1] - bin2pos[j][1]))
+			try:
+				if d > 0:
+					params_[d].append(data_[i][j])
+			except:
+				if d > 0:
+					params_[d] = [data_[i][j]]
+	dist_partitions = []
+	partition, nbins = [], 0
+	for d_ in sorted(params_.keys())[:-1]: # Equal occupancy binning
+		partition.append(d_)
+		nbins += len(params_[d_])
+		if nbins > 0.5 * N:
+			dist_partitions.append(partition)
+			partition = []
+			nbins = 0
+	ldist = sorted(params_.keys())[-1]
+	nbins += len(params_[ldist])
+	if nbins > 0.5 * N:
+		dist_partitions.append(partition + [ldist])
+	else:
+		dist_partitions[-1] += (partition + [ldist])
+	for partition in dist_partitions:
+		interaction_freqs = []
+		for d in partition:
+			interaction_freqs += params_[d]
+		q25, q75 = np.percentile(interaction_freqs, [25 ,75])
+		interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
+		for d in partition:
+			params_[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+	return params_
+
+
+def background_model_dist_ratio(dis, genomic_distance_model):
+	params_ = dict()
+	N = dis.shape[0]
+	if genomic_distance_model == 'circular':
+		for i in range(N):
+			for j in range(i + 1, N):
+				d = min(abs(i - j), N - abs(i - j))
+				try:
+					params_[d].append(d / dis[i][j])
+				except:
+					params_[d] = [d / dis[i][j]]
+		for d in params_.keys():
+			q25, q75 = np.percentile(params_[d], [25 ,75])
+			params_[d] = [c for c in params_[d] if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
+			params_[d] = [np.mean(params_[d]), np.var(params_[d])]
+	else: # Reference genomic distance
+		for i in range(N):
+			for j in range(i + 1, N):
+				d = N
+				if bins[i][0] == bins[j][0]:
+					d = min(d, abs(bins[i][1] - bins[j][1]))
+				try:
+					if d > 0:
+						params_[d].append(d / dis[i][j])
+				except:
+					if d > 0:
+						params_[d] = [d / dis[i][j]]
+		dist_partitions = []
+		partition, nbins = [], 0
+		for d_ in sorted(params_.keys())[:-1]: # Equal occupancy binning
+			partition.append(d_)
+			nbins += len(params_[d_])
+			if nbins > 0.5 * N:
+				dist_partitions.append(partition)
+				partition = []
+				nbins = 0
+		nbins += len(params_[N])
+		if nbins > 0.5 * N:
+			dist_partitions.append(partition + [N])
+		else:
+			dist_partitions[-1] += (partition + [N])
+		for partition in dist_partitions:
+			interaction_freqs = []
+			for d in partition:
+				interaction_freqs += params_[d]
+			q25, q75 = np.percentile(interaction_freqs, [25 ,75])
+			interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
+			for d in partition:
+				params_[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+	return params_
+
+
+def identify_significant_interactions(output_prefix, matrix = None, pval_cutoff = 0.05, model = 'global_nb', 
+				padding = 'average', genomic_distance_model = 'circular', significant_interactions = None, 
+				structure = None, annotation = None, max_pooling = False, exclude = None, log_fn = None):
 	if model not in ['distance_ratio', 'local', 'global_poisson', 'global_nb']:
 		raise ValueError(f'significant_interactions.py: The model {model} is not one of the choices: [\'distance_ratio\', \'local\', \'global_poisson\', \'global_nb\']')
 	if padding not in ['zero', 'average', 'cyclic']:
@@ -40,8 +179,20 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 		log_fn = output_prefix + "_significant_interaction.log"
 	logger = create_logger('significant_interactions.py', log_fn)
 	logger.info("Python version " + sys.version + "\n")
-	function_param = f'identify_significant_interactions(output_prefix=\'{output_prefix}\', matrix=\'{matrix}\', pval_cutoff={pval_cutoff}, model=\'{model}\', padding=\'{padding}\', genomic_distance_model=\'{genomic_distance_model}\', significant_interactions=\'{significant_interactions}\', structure=\'{structure}\', annotation=\'{annotation}\', max_pooling={max_pooling}, exclude={exclude}, log_fn=\'{log_fn}\')'
+	function_param = f"identify_significant_interactions(output_prefix = \'{output_prefix}\'," \
+							"matrix = \'{matrix}\'," \
+							"pval_cutoff = {pval_cutoff}, " \
+							"model = \'{model}\', " \
+							"padding = \'{padding}\', " \
+							"genomic_distance_model = \'{genomic_distance_model}\', " \
+							"significant_interactions = \'{significant_interactions}\', " \
+							"structure = \'{structure}\', " \
+							"annotation = \'{annotation}\', " \
+							"max_pooling = {max_pooling}, " \
+							"exclude = {exclude}, " \
+							"log_fn = \'{log_fn}\')" 
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
+
 	"""
 	Load Hi-C matrix
 	"""
@@ -80,81 +231,17 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 	params_est = dict()
 	if matrix and (model == 'global_poisson' or model == 'global_nb'):
 		if genomic_distance_model == 'circular':
-			for i in range(N):
-				for j in range(i + 1, N):
-					d = min(abs(i - j), N - abs(i - j))
-					try:
-						params_est[d].append(data[i][j])
-					except:
-						params_est[d] = [data[i][j]]
-			for d in params_est.keys():
-				q25, q75 = np.percentile(params_est[d], [25 ,75])
-				params_est[d] = [c for c in params_est[d] if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
-				params_est[d] = [np.mean(params_est[d]), np.var(params_est[d])]
+			params_est = background_model_circular(data)
 		elif genomic_distance_model == 'linear':
-			ld, d = 1, 1
-			interaction_freqs = []
-			for i in range(1, N): # Equal occupancy binning
-				for j in range(N - i):
-					interaction_freqs.append(data[j][i + j])
-				if len(interaction_freqs) > 0.5 * N:
-					q25, q75 = np.percentile(interaction_freqs, [25 ,75])
-					interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
-					for d_ in range(d, i + 1):
-						params_est[d_] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
-					interaction_freqs = []
-					ld = d
-					d = i + 1
-			if len(interaction_freqs) > 0:
-				interaction_freqs = []
-				for i in range(ld, N):
-					for j in range(N - i):
-						interaction_freqs.append(data[j][i + j])
-				q25, q75 = np.percentile(interaction_freqs, [25 ,75])
-				interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
-				for d_ in range(ld, N):
-					params_est[d_] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+			params_est = background_model_linear(data)
 		else:
 			if not annotation:
-				raise ValueError("Annotation file is required.")
-			for i in range(N):
-				for j in range(i + 1, N):
-					d = N
-					if bins[i][0] == bins[j][0]:
-						d = min(d, abs(bins[i][1] - bins[j][1]))
-					try:
-						if d > 0:
-							params_est[d].append(data[i][j])
-					except:
-						if d > 0:
-							params_est[d] = [data[i][j]]
-			dist_partitions = []
-			partition, nbins = [], 0
-			for d_ in sorted(params_est.keys())[:-1]: # Equal occupancy binning
-				partition.append(d_)
-				nbins += len(params_est[d_])
-				if nbins > 0.5 * N:
-					dist_partitions.append(partition)
-					partition = []
-					nbins = 0
-			ldist = sorted(params_est.keys())[-1]
-			nbins += len(params_est[ldist])
-			if nbins > 0.5 * N:
-				dist_partitions.append(partition + [ldist])
-			else:
-				dist_partitions[-1] += (partition + [ldist])
-			for partition in dist_partitions:
-				interaction_freqs = []
-				for d in partition:
-					interaction_freqs += params_est[d]
-				q25, q75 = np.percentile(interaction_freqs, [25 ,75])
-				interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
-				for d in partition:
-					params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+				raise FileNotFoundError("Annotation file is required.")
+			params_est = background_model_reference(data, bins)
 		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
 	elif matrix and model == 'distance_ratio':
 		if not (structure and annotation):
-			raise ValueError("3D structure and annotation files are required to compute the distance ratio.")
+			raise FileNotFoundError("3D structure and annotation files are required to compute the distance ratio.")
 		X = np.array([])
 		if structure.endswith(".txt"):
 			X = np.loadtxt(structure)
@@ -163,54 +250,10 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 		else:
 			raise OSError("Input matrix must be in *.txt or *.npy format.")
 		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Loaded ecDNA 3D structure.")
-
+		
+		assert N == X.shape[0]
 		dis = euclidean_distances(X)
-		if genomic_distance_model == 'circular':
-			for i in range(N):
-				for j in range(i + 1, N):
-					d = min(abs(i - j), N - abs(i - j))
-					try:
-						params_est[d].append(d / dis[i][j])
-					except:
-						params_est[d] = [d / dis[i][j]]
-			for d in params_est.keys():
-				q25, q75 = np.percentile(params_est[d], [25 ,75])
-				params_est[d] = [c for c in params_est[d] if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
-				params_est[d] = [np.mean(params_est[d]), np.var(params_est[d])]
-		else: # Reference genomic distance
-			for i in range(N):
-				for j in range(i + 1, N):
-					d = N
-					if bins[i][0] == bins[j][0]:
-						d = min(d, abs(bins[i][1] - bins[j][1]))
-					try:
-						if d > 0:
-							params_est[d].append(d / dis[i][j])
-					except:
-						if d > 0:
-							params_est[d] = [d / dis[i][j]]
-			dist_partitions = []
-			partition, nbins = [], 0
-			for d_ in sorted(params_est.keys())[:-1]: # Equal occupancy binning
-				partition.append(d_)
-				nbins += len(params_est[d_])
-				if nbins > 0.5 * N:
-					dist_partitions.append(partition)
-					partition = []
-					nbins = 0
-			nbins += len(params_est[N])
-			if nbins > 0.5 * N:
-				dist_partitions.append(partition + [N])
-			else:
-				dist_partitions[-1] += (partition + [N])
-			for partition in dist_partitions:
-				interaction_freqs = []
-				for d in partition:
-					interaction_freqs += params_est[d]
-				q25, q75 = np.percentile(interaction_freqs, [25 ,75])
-				interaction_freqs = [c for c in interaction_freqs if 2.5 * q25 - 1.5 * q75 <= c <= 2.5 * q75 - 1.5 * q25]
-				for d in partition:
-					params_est[d] = [np.mean(interaction_freqs), np.var(interaction_freqs)]
+		params_est = background_model_dist_ratio(dis, genomic_distance_model)
 		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Estimated the mean and variance of interactions at each genomic distance.")
 	
 	"""
@@ -564,7 +607,8 @@ def identify_significant_interactions(output_prefix, matrix=None, pval_cutoff=0.
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "%d Clusters were detected with Louvain Clustering." %len(set(best_partition.values())))
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Wrote Clustered bins to %s." %cluster_fn)
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
-	print('Significant interactions identification is done. Significant interactions are written to %s.' %tsv_fn)
+	print('Significant interactions identification done. Significant interactions are written to %s.' %tsv_fn)
+
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description = "Identify significant interactions from ecDNA.")
@@ -590,3 +634,4 @@ if __name__ == "__main__":
 	
 	args = parser.parse_args()
 	identify_significant_interactions(**vars(args))
+

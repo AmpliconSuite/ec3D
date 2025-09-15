@@ -8,11 +8,6 @@ import argparse
 import time
 import numpy as np
 
-try:
-	from ec3D.util import create_logger, read_ecDNA_cycle
-except:
-	from util import create_logger, read_ecDNA_cycle
-
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -20,10 +15,16 @@ from pylab import rcParams
 rcParams['figure.figsize'] = [10, 10]
 rcParams['pdf.fonttype'] = 42
 
+try:
+	from ec3d.util import create_logger, read_ecDNA_cycle
+except:
+	from util import create_logger, read_ecDNA_cycle
+
+
 def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix,
-								  annotation = None, interactions = None, sv_list = None,
-								  fontsize = 24, min_segment_ratio = 8, plot_collapsed_matrix = False,
-								  log_fn = None):
+				annotation = None, interactions = None, sv_list = None,
+				fontsize = 24, min_segment_ratio = 8, plot_collapsed_matrix = False,
+				log_fn = None):
 	"""
 	Set up logging
 	"""
@@ -232,11 +233,17 @@ def plot_significant_interactions(ecdna_cycle, resolution, matrix, output_prefix
 		plt.savefig(output_prefix + "_expanded_matrix.png", dpi = 150)
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the plot to pdf and png.")
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
-	print('Significant interactions plot is done. Significant interactions are visualized in %s and %s.' %(output_prefix + "_collapsed_matrix.pdf", output_prefix + "_collapsed_matrix.png" if plot_collapsed_matrix else output_prefix + "_expanded_matrix.pdf"))
+	if plot_collapsed_matrix:
+		print('Significant interactions plot is done. Significant interactions plot saved to %s and %s.' 
+			%(output_prefix + "_collapsed_matrix.pdf", output_prefix + "_collapsed_matrix.png"))
+	else:
+		print('Significant interactions plot is done. Significant interactions plot saved to %s and %s.' 
+			%(output_prefix + "_expanded_matrix.pdf", output_prefix + "_expanded_matrix.png"))
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = "Visualize significant interactions identified in ecDNA.")
-	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
+	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed format.", required = True)
 	parser.add_argument("--resolution", help = "Bin size.", type = int, required = True)
 	parser.add_argument("--matrix", help = "Input collapsed/expanded Hi-C matrix, in *.txt or *.npy format", required = True)
 	parser.add_argument("--output_prefix", help = "Prefix of output files.", required = True)
@@ -250,3 +257,4 @@ if __name__ == '__main__':
 	
 	args = parser.parse_args()
 	plot_significant_interactions(**vars(args))
+

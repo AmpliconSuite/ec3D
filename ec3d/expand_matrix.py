@@ -11,10 +11,12 @@ from scipy.special import loggamma, digamma
 from autograd import grad
 from iced import normalization
 
+
 try:
-	from ec3D.util import create_logger
+	from ec3d.util import create_logger
 except:
 	from util import create_logger
+
 
 def c_obj(x, X, N, S = None, C_dup = None, alpha = -3.0, beta = 1.0):
 	C1 = x.reshape(N, -1).copy()
@@ -55,7 +57,9 @@ def c_gradient(x, X, N, S = None, C_dup = None, alpha = -3.0, beta = 1.0):
 	grad_counts[np.isnan(grad_counts)] = 0.0
 	return grad + grad_counts
 
-def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix, strategy="redist", log_fn=None, save_npy=False):
+
+def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix, 
+		strategy = "redist", log_fn = None, save_npy = False):
 	if strategy not in ['redist', 'hybrid', 'poisson']:
 		raise ValueError(f'expand_matrix.py: The strategy {strategy} is not one of the choices: [\'redist\', \'hybrid\', \'poisson\']')
 	"""
@@ -251,6 +255,7 @@ def expand_matrix(raw_matrix, annotation, structure, alpha, beta, output_prefix,
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
 	print('Matrix expansion is done. The expanded matrix is saved to %s.' % (output_prefix + "_expanded_matrix.txt" if not save_npy else output_prefix + "_expanded_matrix.npy"))
 
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description = "Compute the expanded Hi-C from collapsed Hi-C.")
 	parser.add_argument("--raw_matrix", help = "Raw, collapsed Hi-C matrix, in *.txt or *.npy format.", required = True)
@@ -265,3 +270,4 @@ if __name__ == "__main__":
 	
 	args = parser.parse_args()
 	expand_matrix(**vars(args))
+

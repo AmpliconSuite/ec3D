@@ -15,8 +15,10 @@ from sklearn.metrics import euclidean_distances
 from autograd import grad
 
 try:
-	from ec3D.util import getTransformation, create_logger
+	from ec3d.expand_matrix import expand_matrix
+	from ec3d.util import getTransformation, create_logger
 except:
+	from expand_matrix import expand_matrix
 	from util import getTransformation, create_logger
 
 
@@ -710,15 +712,6 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time_) + "Begin iteration %d." %(it + 1))
 		
 		# estimate alpha and beta by autograd
-		"""
-		results1 = optimize.fmin_l_bfgs_b(exponent_obj_alpha_auto, np.array([alpha]), fprime = alpha_gradient,
-						args = (X_, C_nodup, S, C_dup, beta, True, gamma), bounds = alpha_bounds_, maxiter = 1000)
-		alpha = results1[0][0]
-		results2 = optimize.fmin_l_bfgs_b(exponent_obj_beta_auto, np.array([beta]), fprime = beta_gradient,
-						args = (X_, C_nodup, S, C_dup, alpha, True, gamma), bounds = beta_bounds_, maxiter = 1000)
-		beta = results2[0][0]
-		f_alpha = results2[1]
-		"""
 		alpha, beta, f_alpha = estimate_alpha_beta(X_, C_nodup, S, C_dup, alpha, beta)
 		if beta > 400.0 or beta < 0.01:
 			return X_, results[1], alpha, beta
@@ -746,18 +739,29 @@ def max_poisson_likelihood(C, N, ini_x, ini_C1, idx_nodup, idx_dup, dup_times, i
 	return X_, results[1], alpha, beta
 
 
-def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg=0.05, init_alpha=-3.0, 
-							 num_repeats=5, save_repeats=False, max_rounds=1000, gt_structure=None, save_npy=False):
+def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn = None, reg = 0.05, 
+			init_alpha = -3.0, num_repeats = 5, save_repeats = True, max_rounds = 1000, 
+			gt_structure = None, save_npy = False, num_threads = None):
 	"""
 	Set up logging
 	"""
-	print(f"Reconstructing 3D structure with {num_repeats} random seeds ...")
+	print(f"Reconstructing 3D structure with {num_repeats} random initializations ...")
 	start_time = time.time()
 	if not log_fn:
 		log_fn = output_prefix + "_optimization.log"
 	logger = create_logger('spatial_structure.py', log_fn)
 	logger.info("Python version " + sys.version + "\n")
-	function_param = f'reconstruct_3D_structure(matrix=\'{matrix}\', annotation=\'{annotation}\', output_prefix=\'{output_prefix}\', log_fn=\'{log_fn}\', reg={reg}, init_alpha={init_alpha}, num_repeats={num_repeats}, save_repeats={save_repeats}, max_rounds={max_rounds}, gt_structure=\'{gt_structure}\', save_npy={save_npy})'
+	function_param = f"reconstruct_3D_structure(matrix = \'{matrix}\'," \
+						"annotation = \'{annotation}\'," \
+						"output_prefix = \'{output_prefix}\'," \
+						"log_fn = \'{log_fn}\'," \
+						"reg = {reg}," \
+						"init_alpha = {init_alpha}," \
+						"num_repeats = {num_repeats}," \
+						"save_repeats = {save_repeats}," \
+						"max_rounds = {max_rounds}," \
+						"gt_structure = \'{gt_structure}\'," \
+						"save_npy = {save_npy})"
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
 
 	"""
@@ -928,7 +932,10 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 		try:
 			PM_X, PM_obj, alpha, beta = max_poisson_likelihood(C, N, MDS_X1, MDS_X2, idx_nodup, idx_dup, dup_times, idx_map, logger, max_rounds, start_time_ = start_time, gt_structure = gt_structure, alpha = init_alpha, reg_weight = reg)
 			if save_repeats:
-				np.savetxt(output_prefix + "_repeat" + str(repeat) + '_coordinates.txt', PM_X)
+				if save_npy:
+					np.save(output_prefix + "_r" + str(repeat) + '_coordinates.npy', PM_X)
+				else:
+					np.savetxt(output_prefix + "_r" + str(repeat) + '_coordinates.txt', PM_X)
 			logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Poisson model optimization completed.")
 			if PM_obj < PM_obj_min:
 				if np.isinf(PM_obj_min):
@@ -976,7 +983,9 @@ def reconstruct_3D_structure(matrix, annotation, output_prefix, log_fn=None, reg
 			np.savetxt(output_coordinates_fn, X1)
 		logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the aligned 3D structure to %s." %output_coordinates_fn)
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
-	print("3D structure reconstruction is done. The 3D structure is saved to %s." %output_coordinates_fn)
+	print("3D structure reconstruction done. The 3D structure is saved to %s." %output_coordinates_fn)
+	return best_alpha, best_beta, PM_X_min
+
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description = "Compute the 3D coordinates from Hi-C.")
@@ -989,8 +998,41 @@ if __name__ == "__main__":
 	parser.add_argument("--num_repeats", help = "Number of repetitions with random initial structures.", type = int, default = 5)
 	parser.add_argument("--save_repeats", help = "Save the reconstructed structure in each repeat.", action = "store_true")
 	parser.add_argument("--max_rounds", help = "Maximum number of rounds for Poisson model.", type = int, default = 1000)
+	parser.add_argument("--num_threads", help = "Maximum number of threads that can be used by ec3D.", type = int)
 	parser.add_argument("--gt_structure", help = "Input the ground truth structure, in *.txt or *.npy format, for calculating RMSD and PCC.")
 	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
 	
 	args = parser.parse_args()
-	reconstruct_3D_structure(**vars(args))
+	if args.num_threads:
+		from threadpoolctl import threadpool_limits
+		with threadpool_limits(limits = args.num_threads, user_api = 'blas'):
+			reconstruct_3D_structure(**vars(args))
+	else:
+		reconstruct_3D_structure(**vars(args))
+
+	"""
+	Generate expanded matrix
+	"""
+	dup_flag = False
+	fp = open(args.annotation, 'r')
+	for line in fp:
+		s = line.strip().split()
+		if len(s) > 4:
+			dup_flag = True
+	fp.close()
+	if dup_flag:
+		if args.raw_matrix:
+			expand_matrix(args.raw_matrix, args.annotation, X, alpha, beta, args.output_prefix, save_npy = args.save_npy)
+		else:
+			print ("Raw Hi-C matrix not found, skipped matrix expansion.")
+	else:
+		collapsed_matrix = np.array([])
+		if args.matrix.endswith(".txt"):
+			collapsed_matrix = np.loadtxt(args.matrix)
+		elif args.matrix.endswith(".npy"):
+			collapsed_matrix = np.load(args.matrix)
+		if args.save_npy:
+			np.save(args.output_prefix + "_expanded_matrix.npy", collapsed_matrix)
+		else:
+			np.savetxt(args.output_prefix + "_expanded_matrix.txt", collapsed_matrix)
+

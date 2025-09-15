@@ -2,18 +2,21 @@
 Extract ecDNA matrix from whole genome Hi-C
 """
 import sys
+import os
 import numpy as np
 import argparse
 import cooler
+import hic2cool
 import time
 from iced import normalization
 
 try:
-	from ec3D.util import create_logger, read_ecDNA_cycle, reorder_bins
+	from ec3d.util import create_logger, read_ecDNA_cycle, reorder_bins
 except:
 	from util import create_logger, read_ecDNA_cycle, reorder_bins
 
-def extract_matrix(cool, ecdna_cycle, resolution, output_prefix, log_fn=None, save_npy=False):
+
+def extract_matrix(cool, ecdna_cycle, resolution, output_prefix, log_fn = None, save_npy = False):
 	"""
 	Set up logging
 	"""
@@ -25,7 +28,6 @@ def extract_matrix(cool, ecdna_cycle, resolution, output_prefix, log_fn=None, sa
 	logger.info("Python version " + sys.version + "\n")
 	function_param = f'extract_matrix(cool=\'{cool}\', ecdna_cycle=\'{ecdna_cycle}\', resolution={resolution}, output_prefix=\'{output_prefix}\', log_fn=\'{log_fn}\', save_npy={save_npy})'
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + function_param)
-
 	"""
 	Read in ecDNA cycle
 	"""
@@ -128,19 +130,33 @@ def extract_matrix(cool, ecdna_cycle, resolution, output_prefix, log_fn=None, sa
 	fp.close()
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the annotation of bins to %s." %(output_prefix + "_annotations.bed"))
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
-	print("Matrix extraction is done. The collapsed matrix is saved to %s." %(output_prefix + "_collapsed_matrix.npy" if save_npy else output_prefix + "_collapsed_matrix.txt"))
+	print("Matrix extraction done. The collapsed matrix is saved to %s." %(output_prefix + "_collapsed_matrix.npy" if save_npy else output_prefix + "_collapsed_matrix.txt"))
+
 
 if __name__ == '__main__':
-
 	parser = argparse.ArgumentParser(description = "Extract Hi-C matrix correspond to ecDNA intervals.")
-	parser.add_argument("--cool", help = "Input whole genome Hi-C map, in *.cool format.", required = True)
-	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed (chr, start, end, orientation) format.", required = True)
+	parser.add_argument("--hic", "--cool", dest = "input", help = "Input whole genome Hi-C map, in *.cool or *.hic format.", required = True)
+	parser.add_argument("--ecdna_cycle", help = "Input ecDNA intervals, in *.bed format.", required = True)
 	parser.add_argument("--resolution", help = "Bin size.", type = int, required = True)
 	parser.add_argument("--output_prefix", help = "Prefix of the output files.", required = True)
 	parser.add_argument("--log_fn", help = "Name of log file.")
 	parser.add_argument("--save_npy", help = "Save matrices to *.npy format", action = "store_true")
 	
 	args = parser.parse_args()
-	extract_matrix(**vars(args))
-	
+	hic_fn = args.input
+	converted_hic_fn = ""
+	if not (hic_fn.endswith('.cool') or hic_fn.endswith('.hic') or '.mcool' in hic_fn):
+		raise ValueError("The input Hi-C file must be in .cool or .hic format.")
+	elif hic_fn.endswith('.hic'):
+		converted_hic_fn = hic_fn.split('/')[-1][:-4] + '.cool'
+		hic2cool.hic2cool_convert(hic_fn, converted_hic_fn, args.resolution)
+		extract_matrix(converted_hic_fn, args.ecdna_cycle, args.resolution, args.output_prefix, log_fn = args.log_fn, save_npy = args.save_npy)
+	else:
+		extract_matrix(hic_fn, args.ecdna_cycle, args.resolution, args.output_prefix, log_fn = args.log_fn, save_npy = args.save_npy)
+	if hic_fn.endswith('.hic'):
+		try:
+			os.remove(converted_hic_fn)
+		except:
+			pass
+
 

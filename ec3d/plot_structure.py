@@ -15,7 +15,7 @@ from plotly.subplots import make_subplots
 #from plotly.offline import plot
 
 try:
-	from ec3D.util import create_logger, chr_idx
+	from ec3d.util import create_logger, chr_idx
 except:
 	from util import create_logger, chr_idx
 
@@ -275,9 +275,10 @@ def plotstr_significant_interactions_and_genes(pos, breakpoints, bins, bin2gene,
 	if save_png:
 		fig.write_image(output_prefix + "_ec3d.png", scale = 2.5)
 
+
 def plot_3D_structure(structure, output_prefix, interactions = None, clusters = None,
-					  annotation = None, ref = 'hg38', download_gene = False, gene_fn = None, 
-					  noncyclic = False, plot_axis = False, save_png = False, log_fn = None):
+			annotation = None, ref = 'hg38', download_gene = False, gene_fn = None, 
+			noncyclic = False, plot_axis = False, save_png = False, log_fn = None):
 	"""
 	Set up logging
 	"""
@@ -476,7 +477,8 @@ def plot_3D_structure(structure, output_prefix, interactions = None, clusters = 
 		noncyclic = noncyclic_, show_background = plot_axis_, save_png = save_png)
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Saved the structure plot to %s." %(output_prefix + "_ec3d.html"))
 	logger.info("#TIME " + '%.4f\t' %(time.time() - start_time) + "Total runtime.")
-	print('3D structure visualization is done. The plot is saved to %s.' %(output_prefix + "_ec3d.html"))
+	print('3D structure plot is done. The plot is saved to %s.' %(output_prefix + "_ec3d.html"))
+
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = "Visualize the 3D structure of ecDNA.")

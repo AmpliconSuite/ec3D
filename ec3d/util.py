@@ -17,23 +17,27 @@ chr_idx = {'1': 0, '2': 1, '3': 2, '4': 3,
 	'chr17': 16, 'chr18': 17, 'chr19': 18, 'chr20': 19,
 	'chr21': 20, 'chr22': 21, 'chrX': 22, 'chrY': 23, 'chrM': 24}
 
+
 def create_logger(name, log_file):
-    """Create a logger"""
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)
+	"""
+	Create a logger
+	"""
+	logger = logging.getLogger(name)
+	logger.setLevel(logging.DEBUG)
     
-    logger.handlers.clear()
+	logger.handlers.clear()
     
-    # Create file handler
-    handler = logging.FileHandler(log_file, mode='w')
-    handler.setLevel(logging.DEBUG)
+	# Create file handler
+	handler = logging.FileHandler(log_file, mode='w')
+	handler.setLevel(logging.DEBUG)
     
-    # Create formatter
-    formatter = logging.Formatter('[%(name)s:%(levelname)s]\t%(message)s')
-    handler.setFormatter(formatter)
+	# Create formatter
+	formatter = logging.Formatter('[%(name)s:%(levelname)s]\t%(message)s')
+	handler.setFormatter(formatter)
     
-    logger.addHandler(handler)
-    return logger
+	logger.addHandler(handler)
+	return logger
+
 
 def read_ecDNA_cycle(fn, res):
 	intrvls = []
