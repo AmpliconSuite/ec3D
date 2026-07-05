@@ -8,25 +8,19 @@ def calculate_distance_matrix(coords):
     distance_matrix = np.linalg.norm(coords[:, np.newaxis] - coords, axis=2)
     return distance_matrix
 
-def distance_to_interaction(distance_matrix, a=-3, b=1, noise = False):
-    """
-    Convert pairwise distances to interaction counts using a power-law decay.
 
-    Parameters:
-    - distance_matrix: Pairwise distances between all points.
-    - a, b: Parameters of the power-law decay.
-
-    Returns:
-    - hic_matrix: Simulated Hi-C interaction matrix.
-    """
-    # Mask zero distances to avoid divide-by-zero errors
-    masked_distance_matrix = np.where(distance_matrix == 0, distance_matrix+0.01, distance_matrix)
-    hic_matrix = b * np.power(masked_distance_matrix, a)
-    if noise == True:
-        for i in range(len(hic_matrix)):
-            for j in range(i, len(hic_matrix[0])):
-                hic_matrix[i, j] = np.random.poisson(hic_matrix[i, j])
-                hic_matrix[j, i] = hic_matrix[i, j]
+def distance_to_interaction(distance_matrix, a=-3, b=1, noise=False):
+    d = np.where(distance_matrix == 0, 1e-2, distance_matrix)     
+    score = np.power(d, a)        
+    if noise == True:         
+        p = score / np.sum(score)         
+        N = int(b * p.size * 1000)         
+        counts = np.random.multinomial(N, p.flatten())         
+        hic_matrix = counts.reshape(p.shape)         
+        hic_matrix = np.triu(hic_matrix, 1)         
+        hic_matrix = hic_matrix + hic_matrix.T
+    else:
+        hic_matrix = b * score
     return hic_matrix
 
 # One pinch k = 1
